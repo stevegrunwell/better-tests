@@ -7,13 +7,11 @@ Steve Grunwell <!-- .element: class="byline" -->
 
 ---
 
-## Fundamentals of automated testing
+## Fundamentals of<br> automated testing
 
 Note:
 
-A quick disclaimer: this is not necessarily an "intro to testing talk", so we're not going to get into the weeds setting up a test runner or talking about what tests are. That being said, even if you're just familiar with the basic _concepts_ of testing, therre should be something useful in this session.
-
-Additionally, examples will focus on PHPUnit, but the principles should be pretty universal. Even if you're on an older version of PHPUnit (or PHP) that predates attributes, most of this functionality was previously exposed via PHP docblock annotations.
+A quick disclaimer: this is not necessarily an "intro to testing talk", so we're not going to get too into the weeds setting up a test runner or anything. That being said, even if you're just familiar with the basic _concepts_ of testing, there should be something useful in this session.
 
 ----
 
@@ -31,6 +29,7 @@ To kick things off, let's do a quick refresher on some of the big reasons _why_ 
 
 * Manual testing is toilsome and rife with opportunities for human error
     - Automated testing makes it trivial to run, and ensure that it runs the same steps each time
+    - Running tests as part of CI helps ensure that new code isn't breaking existing functionality
 * We want to make sure things do what we expect them to, and continue to do so as things change
     - This includes things like regressions, AI slop, etc.
     - Well-written tests help to document intended behavior
@@ -53,11 +52,13 @@ The general concept is that we have a strong foundation of unit tests: these sho
 
 The next level up is integration or feature tests: they might be more involved to write and take a bit longer to run, but they verify that the individual components integrate as we expect them to. This is also often in PHPUnit, but you might opt to use something like Behat instead.
 
-The top layer is end-to-end tests: these might involve scripting a browser with a tool like Playwright, and they will likely be the most time-consuming to write and execute.
+The top layer is end-to-end or UI tests: these might involve scripting a browser with a tool like Playwright, and they will likely be the most time-consuming to write and execute.
 
 It's important to remember that this is a guideline! Write the tests that are most meaningful for your codebase!
-    * E.g. a library without a UI probably doesn't need any E2E tests, and even the integration tests might be sparse
-    * Sometimes when adding tests to existing code, it can be helpful to start at the top
+
+E.g. a library without a UI probably doesn't need any E2E tests, and even the integration tests might be sparse
+
+Sometimes when adding tests to existing code, it can be helpful to start at the top
 
 ----
 
@@ -72,80 +73,75 @@ Note:
 "Automated testing" covers so much more beyond that pyramid, though:
 
 * Linting (checking coding standards)
-* Static code analysis (find bugs, logical errors, etc. via heueristics run against code)
+* Static code analysis (find bugs, logical errors, etc. via heuristics run against code)
 * Anything else you might throw into a CI pipeline
 
-For this talk, we're going to focus on our unit and integration test suites. However, many of the principles will still apply throughout the stack, and a well-tested application will likely include more than just unit tests; use the right tool for the job!
+For this talk, we're going to focus on our unit and integration test suites. However, be aware that a well-rounded CI pipeline will likely include more than just unit/integration tests, and these tools all have their individual roles to play.
 
 ---
 
-## Principles of Good Tests&trade;
+## Not all tests are made equal
 
 Note:
 
-Now that we're all caught up, let's talk about some of the attributes we find in effective tests:
+The difference between a good test and a bad test is the difference between a relaxing weekend and being paged at 2am.
+
+Just because tests _exist_, that doesn't mean that they're good or useful. Let's look at some common issues with tests:
 
 ----
 
-### Tests should be descriptive,<br> not prescriptive
+### Tests that fail to capture the SUT
 
-Describe the behavior, not the implementation!
+<u>S</u>ystem <u>U</u>nder <u>T</u>est
 
 Note:
 
-* Trap I admittedly fell into early in my testing journey
-* A unit test should be given `$input`, I expect this `$output`
-* Unless you're intentionally testing side-effects, we shouldn't care that a log was written or that some internal function was called with specific arguments
-* Writing tests this way makes tests brittle and harder to maintain
+When we're writing tests, it's important to remember what piece of code we're intending to test: we call this the "System Under Test", or "SUT".
 
-
+* This should be obvious for unit tests, generally a single method at a time
+* Feature tests should only focus on the feature being tested
+    - e.g. Authentication failures should not cause Checkout tests to fail
+    - We should be using test doubles to mock unrelated parts of the application
+* Isolating the SUT reduces complexity, improves maintainability and effectiveness of tests
+    - Tests should test *one* thing!
 
 ----
 
-### Tests shouldn't just test the happy path! @TODO
+### Tests that focus on implementation, not behavior
 
-```php
-class SandwichFactory
+Note:
+
+When people are first learning how to write tests, it's not uncommon to see tests that are effectively repeating what the code itself is doing: "we expect that calling this method will also call these three methods, each of which will return these values, etc."
+
+This can result in brittle tests that break as soon as anything in the implementation changes, because they're being prescriptive.
+
+Instead, think of tests as inputs and outputs: given this input, I expect to see this output. Anything else is incidental, unless you're explicitly setting out to test side-effects (e.g. ensure some method is called to test that a lifecycle hook is executed)
+
+----
+
+### Tests that fail for the wrong reasons
+
+```php [|6]
+public function testSaveThrowsOnInvalidEmail(): void
 {
-    public static function pbj(BreadInterface $bread, Spread $spread)
-    {
-        if ($bread->isEdible()) {
-            throw new Yuckception('This bread is no good!');
-        }
+    $user = new User();
+    $user->email = 'not an email address';
 
-        if (!$spread instanceof JamOrJelly) {
-            throw new InvalidSpreadException('Do you even know what jelly is?');
-        }
-
-
-    }
+    $this->expectException(\Throwable::class);
+    $user->save();
 }
 ```
-
-* Happy path
-* How is invalid input handled?
-    - Push this off onto typehints, value objects
-* Exceptions and error cases
-
-----
-
-### Tests should only cover what you own @TODO
-
-* Test integration points, not internals of libraries
-* Language features are (probably) not broken
-* Internals can change, but that shouldn't change your tests
+<!-- .element: class="hide-line-numbers" -->
 
 Note:
 
-Good test suites also recognize the boundaries of _what_ we test: generally speaking, we shouldn't be writing tests for things we don't own.
+I've lost track of how many times I've come across tests like this: we want to verify that we can't persist a user with some invalid data, so we set some invalid data and tell PHPUnit that expect to see an instance of `Throwable` thrown.
 
-That's not to say we don't want to test the integration points, but all we should need to worry about is that we're calling that code with a certain set of arguments and getting a specific result. If we can't reach some external API, our tests shouldn't be failing because we should not actually be hitting an external API in our tests.
-
-
+However, we're looking for _any_ `Throwable` here. Maybe it's a `ValidationException` thrown because of the invalid email, but it could also be an error because some other required field isn't set. Or maybe a type error, or a missing argument somewhere. This test wouldn't catch those instances, because we're being too broad in our expectations.
 
 ----
 
-### Tests should be deterministic
+### Non-deterministic tests
 
 Running the same test multiple times should produce the same result!
 
@@ -158,9 +154,411 @@ This one seems obvious, but you might be surprised how often people mess this up
     - Daylight Saving Time is great at catching these
 * If tests break because some third-party service is down, that's an unwanted dependency.
 
+----
+
+### Tests that test nothing at all
+
+```php
+public function getID(): int
+{
+    return $this->id;
+}
+```
+
+<pre class="code-wrapper fragment-replacement fragment hide-line-numbers" data-fragment-index="0"><code class="hljs php language-php fragment fade-out" data-fragment-index="1">public function testGetID(): void
+{
+    $this->user->setID(123);
+
+    $this->assertIsInt($this->user->getID());
+}
+</code><span class="fragment fade-out" data-fragment-index="2"><code class="hljs php language-php fragment fade-in" data-fragment-index="1" data-line-numbers="5">public function testGetID(): void
+{
+    $this->user->setID(123);
+
+    $this->assertIsInt($this->user->getID());
+}
+</code></span><code class="hljs php language-php fragment fade-in" data-fragment-index="2" data-line-numbers="5">public function testGetID(): void
+{
+    $this->user->setID(123);
+
+    $this->assertSame(123, $this->user->getID());
+}
+</code></pre>
+
+Note:
+
+Imagine we have a simple `getID()` method on a model, which returns an integer.
+
+You might find a corresponding test that looks something like this, but what's wrong with it?
+
+This test doesn't tell us anything that the PHP type system doesn't already enforce. The return type-hint guarantees that `getID()` can *only* ever return an integer, so this test will always pass.
+
+A better test for this method would be asserting that the value of `$this->user->getID()` is identical to a known value like `123`.
+
+Speaking of assertions...
+
 ---
 
-## Organizing your tests
+## Using the right assertion(s)
+
+* <!-- .element: class="fragment" --> PHPUnit has dozens of assertions available
+* <!-- .element: class="fragment" --> If you need something more-specific, write your own!
+* <!-- .element: class="fragment" --> Everything boils down to true or false
+
+Note:
+
+Assertions are a crucial part of automated tests, but far too many people are content to just `assertEquals()` and call it a day.
+
+* PHPUnit has dozens of assertions, and each assertion has both an affirmative and negative variant. Not everything needs to just be `assertEquals()`
+* You can also write your own, custom assertions: this makes it easy to encapsulate business logic and reuse these assertions across your test suite
+* Remember that at a fundamental level, every assertion boils down to true or false: does this string match what we're expecting? Do we see the array key we expect to see? Is this object of the right type?
+
+Remember that using the right assertion can not only improve the quality of your tests, but also make debugging failures easier.
+
+----
+
+### Equal, but not the same!
+
+```php [|3|4]
+public function testEquality(): void
+{
+    $this->assertEquals(123, '123'); // 123 == '123'
+    $this->assertSame(123, '123');   // 123 === '123'
+}
+```
+<!-- .element: class="hide-line-numbers" -->
+
+Note:
+
+One of the most frequent issues I see when reviewing tests is using `assertEquals()` instead of `assertSame()`:
+
+* `assertEquals()` uses loose equality checks (e.g. "double equals")
+* `assertSame()` uses strict equality ("triple equals")
+
+Great way for subtle bugs to sneak through, since `0`, `false`, an empty string, null, and an empty array are all equivalent when compared with loose equality checks.
+
+Rule of thumb: default to `assertSame()` anywhere you can't find a more-specific exception, then only resort to `assertEquals()` when absolutely necessary (e.g. two separate instances of an object that are otherwise equals)
+
+----
+
+### `assertCount()`
+
+<pre class="code-wrapper fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="1">public function testCount(): void
+    {
+        $items = ['a', 'b', 'c'];
+
+        $this->assertSame(2, count($items));
+    }</code><code class="hljs php language-php fragment fade-in" data-fragment-index="1">public function testCount(): void
+    {
+        $items = ['a', 'b', 'c'];
+
+        $this->assertCount(2, $items);
+    }</code></pre>
+
+<pre class="code-wrapper fragment-replacement fragment overflow-hidden" data-fragment-index="0"><code class="hljs language-text fragment fade-out" data-fragment-index="1">1) Tests\AssertionTest::testCount
+Failed asserting that 3 is identical to 2.</code><code class="hljs language-text fragment fade-in" data-fragment-index="1">1) Tests\AssertionTest::testCount
+Failed asserting that actual size 3 matches expected size 2.</code></pre>
+
+Note:
+
+A classic example of picking the right tool for the job: `assertCount()`.
+
+When the assertion fails, `assertSame()` will tell us that we "failed asserting that 3 is identical to 2."
+
+Meanwhile, `assertCount()` gives us more details: "Failed asserting that the actual size matches expected size 2."
+
+It's a subtle difference, but makes it clear at a glance that we're comparing the size of two things.
+
+----
+
+### JSON assertions
+
+```php[|5,9]
+public function testJsonAssertions(): void
+{
+    $expected = json_encode([
+        'key1' => 'val1',
+        'key2' => 'val2',
+    ]);
+    $actual = json_encode([
+        'key1' => 'val1',
+        'key2' => 'val3',
+    ]);
+
+    // ...
+}
+```
+<!-- .element: class="hide-line-numbers" -->
+
+Note:
+
+In other situations, the failure output we get will be tailored to the assertion that failed.
+
+Imagine we're comparing two JSON objects: we're expecting "key2" to have "val2" as its value, but our `$actual` has a value of "val3".
+
+----
+
+### JSON assertions
+
+<pre class="code-wrapper fragment-replacement hide-line-numbers"><code class="hljs php language-php fragment fade-out" data-fragment-index="1">public function testJsonAssertions(): void
+{
+    // ...
+    $this->assertSame($expected, $actual);
+}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="1">public function testJsonAssertions(): void
+{
+    // ...
+    $this->assertJsonStringEqualsJsonString($expected, $actual);
+}</code></pre>
+
+<pre class="fragment fragment-replacement" data-fragment-index="0"><code class="hljs language-diff fragment fade-out" data-fragment-index="1">1) Tests\AssertionTest::testJsonAssertions
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'{"key1":"val1","key2":"val2"}'
++'{"key2":"val3","key1":"val1"}'</code><code class="hljs language-diff fragment fade-in overflow-hidden" data-fragment-index="1">1) Tests\AssertionTest::testJsonAssertions
+Failed asserting that '{"key2":"val3","key1":"val1"}' matches (...)
+--- Expected
++++ Actual
+@@ @@
+ {
+     "key1": "val1",
+-    "key2": "val2"
++    "key2": "val3"
+ }</code></pre>
+
+Note:
+
+If we just compared the two as strings, PHPUnit would tell us that the strings don't match, but seeing *how* they differ is left up to us.
+
+Meanwhile, the `assertJsonStringEqualsJsonString()` assertion will print a line-by-line diff *and* disregard the ordering of the properties.
+
+----
+
+### Assertion messages
+
+<pre class="code-wrapper hide-line-numbers overflow-hidden fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public function testGetOrderProcessDate(): void
+{
+    $order = new Order(/* ... */);
+
+    $this->assertTrue(
+        $order->hasBeenProcessed(),
+        'Test is predicated on $order having been processed!'
+    );
+
+    // Make more assertions
+}</code><code class="hljs php language-php fragment fade-in has-highlights" data-line-numbers="5-8" data-fragment-index="0">public function testGetOrderProcessDate(): void
+{
+    $order = new Order(/* ... */);
+
+    $this->assertTrue(
+        $order->hasBeenProcessed(),
+        'Test is predicated on $order having been processed!'
+    );
+
+    // Make more assertions
+}</code></pre>
+
+```text
+1) Tests\Unit\Models\OrderTest::testGetOrderProcessDate
+Test is predicated on $order having been processed!
+Failed asserting that false is true.
+```
+<!-- .element: class="fragment" data-fragment-index="1" -->
+
+Note:
+
+PHPUnit assertions generally accept an optional `$message` string as their last arguments, which lets us provide additional context when an assertion fails.
+
+This not only adds details to failures, but can help document oddities in the codebase. In this case, we're making a quick assertion in our test that we've actually set up our `Order` object properly; it's not unreasonable for a `getOrderProcessDate()` method to behave differently if an order has not yet been processed!
+
+----
+
+#### Making assertion messages useful
+
+```diff [1-5|7-11]
+  $this->assertFileExists(
+      $cacheFile,
+-     'Assertion failed.',
++     'The cache file should have been created.'
+  );
+
+  $this->assertEmpty(
+      $user->posts,
+-     'Expected it to be empty.'
++     'Expected zero posts for the newly-created user.'
+  );
+```
+<!-- .element: class="hide-line-numbers" -->
+
+Note:
+
+When writing assertion messages, make sure you're actually adding useful information.
+
+For example, the failure message for `assertFileExists()` already tells us that the given file does not exist, so a message like "assertion failed" doesn't tell us anything. Instead, we might say "The cache file should have been created" so it's obvious why this assertion
+
+For example, the output when `assertFileExists()` fails already says "Failed asserting that file (file) exists", so adding "assertion failed" doesn't tell us anything. Instead, provide context: we failed to verify that the appropriate cache file was created.
+
+Similarly, `assertEmpty()` against an array will fail with "Failed asserting that an array is empty." Instead of just repeating that, we can explain that we expect the array of posts associated with a newly-created user should be empty because they haven't yet posted anything.
+
+Now, if either of these assertions fail we can understand *why* the assertion was being made, which can help point us to where the error may be occurring.
+
+----
+
+### Sometimes, you assert nothing
+
+<pre class="fragment-replacement hide-line-numbers"><span class="fragment fade-out" data-fragment-index="1"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public function testItDoesNotThrowAnException(): void
+{
+    $this->instance->doSomething();
+
+    $this->assertTrue(true);
+}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0" data-line-numbers="5">public function testItDoesNotThrowAnException(): void
+{
+    $this->instance->doSomething();
+
+    $this->assertTrue(true); // No, bad. No cookie for you!
+}</code></span><code class="hljs php language-php fragment fade-in" data-fragment-index="1">use PHPUnit\Framework\Attributes\DoesNotPerformAssertions;
+
+#[DoesNotPerformAssertions]
+public function testItDoesNotThrowAnException(): void
+{
+    $this->instance->doSomething();
+}</code></pre>
+
+Note:
+
+If you're trying to write a test to basically verify that nothing blows up, be sure you're annotating it correctly.
+
+I've fixed _so many_ tests in my career that use this pattern of `$this->assertTrue(true)`, which is just sloppy. However, PHPUnit will mark tests as risky if they don't make any assertions, so what are you supposed to do?
+
+The correct approach is the `#[DoesNotPerformAssertions]` attribute, which tells PHPUnit "hey, we're testing something but won't be performing any assertions."
+
+---
+
+## Test doubles
+
+Note:
+
+As we've already established, we want our tests to be deterministic (same result every time we run it) and to focus on the system under test. In order to do so, we often rely on test doubles, which are stand-ins for other units of code.
+
+We can use test doubles to ensure that we're not accidentally writing tests for code that we don't own, but we also use it to isolate the SUT.
+
+----
+
+### Five types of test doubles
+
+**Dummy**<br>
+Simply satisfies required arguments
+<!-- .element: class="fragment" data-fragment-index="0" -->
+
+```php
+User::create('test@example.com', 'password123!');
+```
+<!-- .element: class="fragment" data-fragment-index="0" -->
+
+**Fake**<br>
+Test-only implementation of interface
+<!-- .element: class="fragment" data-fragment-index="1" -->
+
+```php
+class TestLogger implements Psr\Log\LoggerInterface {}
+```
+<!-- .element: class="fragment" data-fragment-index="1" -->
+
+Note:
+
+The first two types of test doubles are pretty straightforward:
+
+* A dummy simply exists to satisfy a required argument. Maybe you're passing a string like "first_name" or an empty array. These arguments have no bearing on behavior, we just need to satisfy requirements.
+* A fake is an implementation of an interface that's used instead of the real class. Generally the fake implementations would not be production-ready.
+    - A great example here is Monolog's `TestLogger`: instead of writing to a log file somewhere, it just logs everything to an array.
+    - You can get the entries back out to ensure the right messages were logged.
+
+----
+
+### Five types of test doubles
+
+**Stub**<br>
+_When I call `X()`, return `Y`_
+<!-- .element: class="fragment" -->
+
+**Mock**<br>
+_Expect `X(A, B)`, return `Y`_
+<!-- .element: class="fragment" -->
+
+**Spy**<br>
+_Did `X()` get called with `A`, `B`?_
+<!-- .element: class="fragment" -->
+
+Note:
+
+The other three types are all closely related:
+
+* A stub allows us to dictate how something should behave; when I call this function/method, respond with this.
+* A mock builds on this idea, letting us make assertions around interactions with the test double
+    - Expect that this method will be called exactly two times with these specific arguments; when it is, return this value, execute this callback, throw this exception, etc.
+* A spy is like a mock, but after the fact: after we've executed the system under test, verify that some method was called exactly once with these these arguments.
+    - A great use-case would be ensuring that appropriate errors are emitted: when we forced this failure, did it trigger a call to our alerting service?
+
+----
+
+##### Mocking in practice
+
+```php [|3-8|10|12]
+public function testGetProducts(): void
+{
+    $products = [/* ... */];
+    $repository = $this->mock(ProductRepository::class);
+    $repository->expects($this->once())
+        ->method('fetch')
+        ->with('store_123', 20)
+        ->willReturn($products);
+
+    $store = new Store('store_123', $repository);
+
+    $this->assertSame($products, $store->getProducts(20));
+}
+```
+<!-- .element: class="hide-line-numbers" -->
+
+Note:
+
+In this example, we're testing the `getProducts()` method on a store, which accepts a limit; in this case, 20 products.
+
+We create a mock of the ProductRepository class, then tell it "when someone calls my `fetch()` method with arguments 'store_123' and 20, then return this array of product records."
+
+We inject our mock via a constructor argument on the `Store` class, along with the store ID ("store_123").
+
+Finally, we assert that we got back the 20 products we were expecting.
+
+Note that we're not actually reading anything from the database or making any HTTP calls: we're telling `ProductRepository` how to behave, and PHPUnit will fail the test if we don't call `fetch()` exactly one time with those arguments. This lets us verify that we're interacting with `ProductRepository` correctly (e.g. the store ID is being passed along with the limit), but we're not concerned with how the internals of the repository are working.
+
+----
+
+#### Beware over-mocking!
+
+```php[|4-6]
+public function testValidateUsername(): void
+{
+    $validator = $this->createStub(Validator::class);
+    $validator->method('validateUsername')->willReturn(true);
+
+    $this->assertTrue($validator->validateUsername('sam'));
+}
+```
+<!-- .element: class="hide-line-numbers" -->
+
+Note:
+
+When working with test doubles, be careful that you're not overly-reliant on test doubles.
+
+I've actually caught tests like this before: people were trying to test a method and ended up writing a test that stubbed the SUT.
+
+This test does *nothing* except prove that PHPUnit stubs work.
+
+---
+
+## Test organization
 
 > You miss 100% of the tests you can't find <cite>Me, just now</cite>
 
@@ -170,7 +568,7 @@ If you and your team can't find your tests, you're far less likely to maintain y
 
 ----
 
-### The heirarchy of PHPUnit tests
+### The hierarchy of PHPUnit tests
 
 * <!-- .element: class="fragment" --> Test suite(s) > classes > methods > assertions
 * <!-- .element: class="fragment" --> Unit tests: follow directory structure
@@ -201,7 +599,7 @@ Note:
 
 Remember that you can define multiple test suites, which can be a good way to split things up.
 
-By doing so, we can clearly delineate between unit vs feature tests, API tests vs E2E, etc. For example, maybe there are different base test casess to enable things like database interactions for feature (but not unit) tests.
+By doing so, we can clearly delineate between unit vs feature tests, API tests vs E2E, etc. For example, maybe there are different base test cases to enable things like database interactions for feature (but not unit) tests.
 
 This is also the first of several ways to filter tests: maybe we want to run just unit tests, but leave out integration tests. Or maybe we only want to run E2E tests before a deployment, not for every PR. Splitting up our test suites gives us this flexibility.
 
@@ -533,11 +931,11 @@ However, PHP is single-inheritance (classes can only extend a single class), so 
 
 A better approach would be to use composition rather than inheritance: break things up into traits, which you can then import only where you need them.
 
-General rule of thumb: if you find yourself with multiple base test cases in a single test suite (e.g. ApiTestCase, ModelTestCase, etc.), that could be a sign that things are overengineered. Consider converting to traits and/or splitting into separate test suites.
+General rule of thumb: if you find yourself with multiple base test cases in a single test suite (e.g. ApiTestCase, ModelTestCase, etc.), that could be a sign that things are over-engineered. Consider converting to traits and/or splitting into separate test suites.
 
 ---
 
-## Writing better tests
+## Writing maintainable tests
 
 Note:
 
@@ -593,127 +991,6 @@ This test could easily be reduced to a single line, but breaking it out to show 
 
 ----
 
-#### SUT up!
-
-<u>S</u>ystem <u>U</u>nder <u>T</u>est
-
-Note:
-
-When we're writing tests, it's important to remember what piece of code we're intending to test: we call this the "System Under Test", or "SUT".
-
-* This should be obvious for unit tests, generally a single method at a time
-* Feature tests should only focus on the feature being tested
-    - e.g. Authentication failures should not cause Checkout tests to fail
-    - We should be using test doubles to mock unrelated parts of the application
-* Isolating the SUT reduces complexity, improves maintainability and effectiveness of tests
-    - Tests should test *one* thing!
-
-----
-
-### Test doubles
-
-* <!-- .element: class="fragment" --> Stand-ins for other units of code
-* <!-- .element: class="fragment" --> Allow tests to be deterministic
-* <!-- .element: class="fragment" --> Test interactions with underlying dependencies
-
-Note:
-
-@TODO
-
-In order to isolate our SUT, we can rely on "test doubles", which stand-in for other units of code.
-
-Instead of relying on
-
-----
-
-#### Five types of test doubles
-
-**Dummy**<br>
-Simply satisfies required arguments
-<!-- .element: class="fragment" data-fragment-index="0" -->
-
-```php
-User::create('test@example.com', 'password123!');
-```
-<!-- .element: class="fragment" data-fragment-index="0" -->
-
-**Fake**<br>
-Test-only implementation of interface
-<!-- .element: class="fragment" data-fragment-index="1" -->
-
-```php
-class TestLogger implements Psr\Log\LoggerInterface {}
-```
-<!-- .element: class="fragment" data-fragment-index="1" -->
-
-Note:
-
-The first two types of test doubles are pretty straightforward:
-
-* A dummy simply exists to satisfy a required argument. Maybe you're passing a string like "first_name" or an empty array. These arguments have no bearing on behavior, we just need to satisfy requirements.
-* A fake is an implementation of an interface that's used instead of the real class. Generally the fake implementations would not be production-ready.
-    - A great example here is Monolog's `TestLogger`: instead of writing to a log file somewhere, it just logs everything to an array.
-    - You can get the entries back out to ensure the right messages were logged.
-
-----
-
-#### Five types of test doubles
-
-**Stub**<br>
-_When I call `X()`, return `Y`_
-<!-- .element: class="fragment" -->
-
-**Mock**<br>
-_Expect `X(A, B)`, return `Y`_
-<!-- .element: class="fragment" -->
-
-**Spy**<br>
-_Did `X()` get called with `A`, `B`?_
-<!-- .element: class="fragment" -->
-
-Note:
-
-The other three types are all closely related:
-
-* A stub allows us to dictate how something should behave; when I call this function/method, respond with this.
-* A mock builds on this idea, letting us make assertions around interactions with the test double
-    - Expect that this method will be called exactly two times with these specific arguments; when it is, return this value, execute this callback, throw this exception, etc.
-* A spy is like a mock, but after the fact: after we've executed the system under test, verify that some method was called exactly once with these these arguments.
-    - A great use-case would be ensuring that appropriate errors are emitted: when we forced this failure, did it trigger a call to our alerting service?
-
-----
-
-##### Mocks, stubs, and spies—oh my! @TODO
-
-```php
-// Amazing test double example coming soon!
-```
-
-----
-
-#### Beware over-mocking!
-
-```php[|4-6]
-public function testValidateUsername(): void
-{
-    $validator = $this->createStub(Validator::class);
-    $validator->method('validateUsername')->willReturn(true);
-
-    $this->assertTrue($validator->validateUsername('sam'));
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-When working with test doubles, be careful that you're not overly-reliant on test doubles.
-
-I've actually caught tests like this before: people were trying to test a method and ended up writing a test that stubbed the SUT.
-
-This test does *nothing* except prove that PHPUnit stubs work.
-
-----
-
 ### Fixtures
 
 Methods that automatically run at certain points in the test lifecycle
@@ -736,7 +1013,7 @@ Note:
 
 Fixtures are methods that you can define in a test class to handle common setup/tear-down operations.
 
-The `setUp()` and `tearDown()` methods are run before/after each test method (respectively), and are great for setting up test doubles, overriding configuration, etc.
+The `setUp()` and `tearDown()` methods are run before/after each test method (respectively), and are great for setting up test doubles, overriding configuration, etc. Instead of having to explicitly do this at the start of each test method, we can define fixtures to ensure that each test is starting from the same place.
 
 There are also static variants, `setUpBeforeClass()` and `tearDownAfterClass()`, which run at the beginning and end of the test class. These are useful for especially-expensive operations and/or ensuring one test class doesn't leak into another.
 
@@ -944,267 +1221,53 @@ If someone can't look at your test method and immediately discern what's being t
 
 Instead, consider having a couple data providers: one might provide a couple scenarios for the happy path, another might have scenarios that trigger exceptions. Don't make your tests harder to follow by prematurely lumping them into data providers to save a few keystrokes.
 
-----
+---
 
-### Using the right assertion(s)
+## Testing beyond the happy path
 
-* <!-- .element: class="fragment" --> PHPUnit has dozens of assertions available
-    * `assertEquals()` v `assertNotEquals()`
-* <!-- .element: class="fragment" --> If you need something more-specific, write your own!
-* <!-- .element: class="fragment" --> Everything boils down to true or false
+* <!-- .element: class="fragment" --> What are the normal ("happy") routes?
+* <!-- .element: class="fragment" --> What are the error states?
+* <!-- .element: class="fragment" --> How do we handle invalid input?
 
 Note:
 
-One of the best things you can do to improve your tests is to pick the right assertion.
+A common gap in test suites is that people are much more likely to test the so-called "happy" paths—when everything goes right—than they are to test what happens when things go wrong.
 
-* PHPUnit has dozens of assertions, and each assertion has both an affirmative and negative variant. Not everything needs to just be `assertEquals()`
-* You can also write your own, custom assertions: this makes it easy to encapsulate business logic and reuse these assertions across your test suite
-* Remember that at a fundamental level, every assertion boils down to true or false: does this string match what we're expecting? Do we see the array key we expect to see? Is this object of the right type?
+When writing tests, it's important to write tests that verify error behaviors. Are we throwing the appropriate exception? Are we leaving things in a half-modified state?
+
+Furthermore, what happens if we're given invalid data? We're expecting an email address as a string, but we're given an empty string: do we keep processing? Should we expect a validation error? What about a negative query limit?
+
+Some of the most valuable tests are those that prove how things work under non-ideal situations.
 
 ----
 
-#### Equal, but not the same!
+### How many paths can you find?
 
-```php [|3|4]
-public function testEquality(): void
+```php [|3-11|3,9-11|4-8|5]
+public function getClient(): Client
 {
-    $this->assertEquals(123, '123'); // 123 == '123'
-    $this->assertSame(123, '123');   // 123 === '123'
+    if (!isset($this->client)) {
+        try {
+            $this->client = new Client($this->authToken);
+        } catch (ClientException $e) {
+            throw new InvalidClientException(/* ... */);
+        }
+    }
+
+    return $this->client;
 }
 ```
 <!-- .element: class="hide-line-numbers" -->
 
 Note:
 
-One of the most frequent issues I see when reviewing tests is using `assertEquals()` instead of `assertSame()`:
-
-* `assertEquals()` uses loose equality checks (e.g. "double equals")
-* `assertSame()` uses strict equality ("triple equals")
-
-Great way for subtle bugs to sneak through, since `0`, `false`, an empty string, null, and an empty array are all equivalent when compared with loose equality checks.
-
-Rule of thumb: default to `assertSame()` anywhere you can't find a more-specific exception, then only resort to `assertEquals()` when absolutely necessary (e.g. two separate instances of an object that are otherwise equals)
-
-----
-
-#### `assertCount()`
-
-<pre class="code-wrapper fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="1">public function testCount(): void
-    {
-        $items = ['a', 'b', 'c'];
-
-        $this->assertSame(2, count($items));
-    }</code><code class="hljs php language-php fragment fade-in" data-fragment-index="1">public function testCount(): void
-    {
-        $items = ['a', 'b', 'c'];
-
-        $this->assertCount(2, $items);
-    }</code></pre>
-
-<pre class="code-wrapper fragment-replacement fragment overflow-hidden" data-fragment-index="0"><code class="hljs language-text fragment fade-out" data-fragment-index="1">1) Tests\AssertionTest::testCount
-Failed asserting that 3 is identical to 2.</code><code class="hljs language-text fragment fade-in" data-fragment-index="1">1) Tests\AssertionTest::testCount
-Failed asserting that actual size 3 matches expected size 2.</code></pre>
-
-Note:
-
-A classic example of picking the right tool for the job: `assertCount()`.
-
-When the assertion fails, `assertSame()` will tell us that we "failed asserting that 3 is identical to 2."
-
-Meanwhile, `assertCount()` gives us more details: "Failed asserting that the actual size matches expected size 2."
-
-It's a subtle difference, but makes it clear at a glance that we're comparing the size of two things.
-
-----
-
-#### JSON assertions
-
-```php[|5,9]
-public function testJsonAssertions(): void
-{
-    $expected = json_encode([
-        'key1' => 'val1',
-        'key2' => 'val2',
-    ]);
-    $actual = json_encode([
-        'key1' => 'val1',
-        'key2' => 'val3',
-    ]);
-
-    // ...
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-In other situations, the failure output we get will be tailored to the assertion that failed.
-
-Imagine we're comparing two JSON objects: we're expecting "key2" to have "val2" as its value, but our `$actual` has a value of "val3".
-
-----
-
-#### JSON assertions
-
-<pre class="code-wrapper fragment-replacement hide-line-numbers"><code class="hljs php language-php fragment fade-out" data-fragment-index="1">public function testJsonAssertions(): void
-{
-    // ...
-    $this->assertSame($expected, $actual);
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="1">public function testJsonAssertions(): void
-{
-    // ...
-    $this->assertJsonStringEqualsJsonString($expected, $actual);
-}</code></pre>
-
-<pre class="fragment fragment-replacement" data-fragment-index="0"><code class="hljs language-diff fragment fade-out" data-fragment-index="1">1) Tests\AssertionTest::testJsonAssertions
-Failed asserting that two strings are identical.
---- Expected
-+++ Actual
-@@ @@
--'{"key1":"val1","key2":"val2"}'
-+'{"key2":"val3","key1":"val1"}'</code><code class="hljs language-diff fragment fade-in overflow-hidden" data-fragment-index="1">1) Tests\AssertionTest::testJsonAssertions
-Failed asserting that '{"key2":"val3","key1":"val1"}' matches (...)
---- Expected
-+++ Actual
-@@ @@
- {
-     "key1": "val1",
--    "key2": "val2"
-+    "key2": "val3"
- }</code></pre>
-
-Note:
-
-If we just compared the two as strings, PHPUnit will tell us that the strings don't match, but it's up to us to figure out how they differ.
-
-Meanwhile, the `assertJsonStringEqualsJsonString()` assertion will print a line-by-line diff *and* disregard the ordering of the properties.
-
-----
-
-### Assertion messages
-
-<pre class="code-wrapper hide-line-numbers overflow-hidden fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public function testGetOrderProcessDate(): void
-{
-    $order = new Order(/* ... */);
-
-    $this->assertTrue(
-        $order->hasBeenProcessed(),
-        'Test is predicated on $order having been processed!'
-    );
-
-    // Make more assertions
-}</code><code class="hljs php language-php fragment fade-in has-highlights" data-line-numbers="5-8" data-fragment-index="0">public function testGetOrderProcessDate(): void
-{
-    $order = new Order(/* ... */);
-
-    $this->assertTrue(
-        $order->hasBeenProcessed(),
-        'Test is predicated on $order having been processed!'
-    );
-
-    // Make more assertions
-}</code></pre>
-
-```text
-1) Tests\Unit\Models\OrderTest::testGetOrderProcessDate
-Test is predicated on $order having been processed!
-Failed asserting that false is true.
-```
-<!-- .element: class="fragment" data-fragment-index="1" -->
-
-Note:
-
-PHPUnit assertions generally accept an optional `$message` string as their last arguments, which lets us provide additional context when an assertion fails.
-
-This not only adds details to failures, but can help document oddities in the codebase. In this case, we're making a quick assertion in our test that we've actually set up our `Order` object properly; it's not unreasonable for a `getOrderProcessDate()` method to behave differently if an order has not yet been processed!
-
-----
-
-#### Making assertion messages useful
-
-```diff [1-5|7-11]
-  $this->assertFileExists(
-      $cacheFile,
--     'Assertion failed.',
-+     'The cache file should have been created.'
-  );
-
-  $this->assertEmpty(
-      $user->posts,
--     'Expected it to be empty.'
-+     'Expected zero posts for the newly-created user.'
-  );
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-When writing assertion messages, make sure you're actually adding useful information.
-
-For example, the output when `assertFileExists()` fails already says "Failed asserting that file (file) exists", so adding "assertion failed" doesn't tell us anything. Instead, provide context: we failed to verify that the appropraite cache file was created.
-
-Similarly, `assertEmpty()` against an array will fail with "Failed asserting that an array is empty." Instead of just repeating that, we can explain that we expect the array of posts associated with a newly-created user should be empty because they haven't yet posted anything.
-
-Now, if either of these assertions fail we can understand *why* the assertion was being made, which can help point us to where the error may be occurring.
-
-----
-
-### Sometimes, you assert nothing
-
-<pre class="fragment-replacement hide-line-numbers"><span class="fragment fade-out" data-fragment-index="1"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public function testItDoesNotThrowAnException(): void
-{
-    $this->instance->doSomething();
-
-    $this->assertTrue(true);
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0" data-line-numbers="5">public function testItDoesNotThrowAnException(): void
-{
-    $this->instance->doSomething();
-
-    $this->assertTrue(true); // No, bad. No cookie for you!
-}</code></span><code class="hljs php language-php fragment fade-in" data-fragment-index="1">use PHPUnit\Framework\Attributes\DoesNotPerformAssertions;
-
-#[DoesNotPerformAssertions]
-public function testItDoesNotThrowAnException(): void
-{
-    $this->instance->doSomething();
-}</code></pre>
-
-Note:
-
-If you're trying to write a test to basically verify that nothing blows up, be sure you're annotating it correctly.
-
-I've fixed _so many_ tests in my career that use this pattern of `$this->assertTrue(true)`, which is just sloppy. However, PHPUnit will mark tests as risky if they don't make any assertions, so what are you supposed to do?
-
-The correct approach is the `#[DoesNotPerformAssertions]` attribute, which tells PHPUnit "hey, we're testing something but won't be performing any assertions."
-
-----
-
-### On testing types
-
-```php
-public function getID(): int
-{
-    return $this->id;
-}
-```
-
-```php [|3]
-public function testGetID(): void
-{
-    $this->assertIsInt($this->user->getID());
-}
-```
-<!-- .element: class="fragment hide-line-numbers" -->
-
-Note:
-
-Imagine we have a simple `getID()` method on a model, which returns an integer.
-
-You might find a corresponding test that looks something like this, but what's wrong with it?
-
-This test doesn't tell us anything that the PHP type system doesn't already enforce. The return type-hint guarantees that `getID()` can *only* ever return an integer, so this test will always pass. We're testing something we don't own here!
-
-A better test for this method would be asserting that the value of `$this->user->getID()` is identical to a known value like `123`.
+Given this `getClient()` method, let's look at all of the possible ways we can work through it:
+
+1. If we don't have a client yet, we need to construct one. Do we get an instance of Client?
+2. If we already have a client, are we getting back the same, cached instance with each call?
+3. If constructing a new Client causes a `ClientException` to be thrown, are we then re-throwing as an `InvalidClientException`?
+4. Are there other exceptions that might occur that we might intentionally not be catching?
+5. What happens if `$this->authToken` is empty or of an invalid type?
 
 ---
 
@@ -1398,6 +1461,8 @@ If you recall, we added both argument and return type-hints, which means that PH
 
 Adding the type-hints here will also make it super-easy for IDEs and static code analysis tools like PHPStan to say "hey, you're trying to call snakeCase() with an array, but it only accepts a string!"
 
+Generally speaking, the stricter your types, the less you need to explicitly write tests for. Once again, embracing strict types makes your life easier!
+
 ----
 
 ### Testing More-Complex Logic
@@ -1515,7 +1580,7 @@ A lot of people are talking about using AI these days to write tests, and there 
 3. Fine, but only to help scaffold your test class.
 4. What could go wrong?
 
-Tests are meant to be the objective arbitors of truth: if your tests are wrong, everything they're meant to protect is at risk.
+Tests are meant to be the objective arbiters of truth: if your tests are wrong, everything they're meant to protect is at risk.
 
 If you _must_ use AI, be especially careful when reviewing its output; incorrect tests can be worse than having no tests at all.
 

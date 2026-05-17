@@ -6,7 +6,7 @@ If your test suite is more of a hindrance than a helper, you may be suffering fr
 
 In this session, we'll analyze the characteristics of "good" and "bad" unit tests and how we can massage the latter into the former. Topics of discussion will include test organization, strict types, fixtures, test doubles, and the true value of code coverage as a metric. Examples use PHPUnit as the test runner, but the lessons are broadly applicable across test runners and languages. Some testing experience is encouraged, but not required.
 
-**[View slides](https://stevegrunwell.github.io/better-tests)**
+**✨ [View slides](https://stevegrunwell.github.io/better-tests) ✨**
 
 ## Resources
 
