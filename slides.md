@@ -156,6 +156,29 @@ This one seems obvious, but you might be surprised how often people mess this up
 
 ----
 
+### Testing test doubles
+
+```php[|4-6]
+public function testValidateUsername(): void
+{
+    $validator = $this->createStub(Validator::class);
+    $validator->method('validateUsername')->willReturn(true);
+
+    $this->assertTrue($validator->validateUsername('sam'));
+}
+```
+<!-- .element: class="hide-line-numbers" -->
+
+Note:
+
+Sometimes, people will get over-zealous with test doubles to the point that tests stop being useful.
+
+I've actually caught tests like this before: people were trying to test a method and ended up writing a test that stubbed the SUT.
+
+This test does *nothing* except prove that PHPUnit stubs work.
+
+----
+
 ### Tests that test nothing at all
 
 ```php
@@ -187,7 +210,7 @@ public function getID(): int
 
 Note:
 
-Imagine we have a simple `getID()` method on a model, which returns an integer.
+Speaking of useless tests, imagine we have a simple `getID()` method on a model, which returns an integer.
 
 You might find a corresponding test that looks something like this, but what's wrong with it?
 
@@ -432,129 +455,6 @@ If you're trying to write a test to basically verify that nothing blows up, be s
 I've fixed _so many_ tests in my career that use this pattern of `$this->assertTrue(true)`, which is just sloppy. However, PHPUnit will mark tests as risky if they don't make any assertions, so what are you supposed to do?
 
 The correct approach is the `#[DoesNotPerformAssertions]` attribute, which tells PHPUnit "hey, we're testing something but won't be performing any assertions."
-
----
-
-## Test doubles
-
-Note:
-
-As we've already established, we want our tests to be deterministic (same result every time we run it) and to focus on the system under test. In order to do so, we often rely on test doubles, which are stand-ins for other units of code.
-
-We can use test doubles to ensure that we're not accidentally writing tests for code that we don't own, but we also use it to isolate the SUT.
-
-----
-
-### Five types of test doubles
-
-**Dummy**<br>
-Simply satisfies required arguments
-<!-- .element: class="fragment" data-fragment-index="0" -->
-
-```php
-User::create('test@example.com', 'password123!');
-```
-<!-- .element: class="fragment" data-fragment-index="0" -->
-
-**Fake**<br>
-Test-only implementation of interface
-<!-- .element: class="fragment" data-fragment-index="1" -->
-
-```php
-class TestLogger implements Psr\Log\LoggerInterface {}
-```
-<!-- .element: class="fragment" data-fragment-index="1" -->
-
-Note:
-
-The first two types of test doubles are pretty straightforward:
-
-* A dummy simply exists to satisfy a required argument. Maybe you're passing a string like "first_name" or an empty array. These arguments have no bearing on behavior, we just need to satisfy requirements.
-* A fake is an implementation of an interface that's used instead of the real class. Generally the fake implementations would not be production-ready.
-    - A great example here is Monolog's `TestLogger`: instead of writing to a log file somewhere, it just logs everything to an array.
-    - You can get the entries back out to ensure the right messages were logged.
-
-----
-
-### Five types of test doubles
-
-**Stub**<br>
-_When I call `X()`, return `Y`_
-<!-- .element: class="fragment" -->
-
-**Mock**<br>
-_Expect `X(A, B)`, return `Y`_
-<!-- .element: class="fragment" -->
-
-**Spy**<br>
-_Did `X()` get called with `A`, `B`?_
-<!-- .element: class="fragment" -->
-
-Note:
-
-The other three types are all closely related:
-
-* A stub allows us to dictate how something should behave; when I call this function/method, respond with this.
-* A mock builds on this idea, letting us make assertions around interactions with the test double
-    - Expect that this method will be called exactly two times with these specific arguments; when it is, return this value, execute this callback, throw this exception, etc.
-* A spy is like a mock, but after the fact: after we've executed the system under test, verify that some method was called exactly once with these these arguments.
-    - A great use-case would be ensuring that appropriate errors are emitted: when we forced this failure, did it trigger a call to our alerting service?
-
-----
-
-##### Mocking in practice
-
-```php [|3-8|10|12]
-public function testGetProducts(): void
-{
-    $products = [/* ... */];
-    $repository = $this->mock(ProductRepository::class);
-    $repository->expects($this->once())
-        ->method('fetch')
-        ->with('store_123', 20)
-        ->willReturn($products);
-
-    $store = new Store('store_123', $repository);
-
-    $this->assertSame($products, $store->getProducts(20));
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-In this example, we're testing the `getProducts()` method on a store, which accepts a limit; in this case, 20 products.
-
-We create a mock of the ProductRepository class, then tell it "when someone calls my `fetch()` method with arguments 'store_123' and 20, then return this array of product records."
-
-We inject our mock via a constructor argument on the `Store` class, along with the store ID ("store_123").
-
-Finally, we assert that we got back the 20 products we were expecting.
-
-Note that we're not actually reading anything from the database or making any HTTP calls: we're telling `ProductRepository` how to behave, and PHPUnit will fail the test if we don't call `fetch()` exactly one time with those arguments. This lets us verify that we're interacting with `ProductRepository` correctly (e.g. the store ID is being passed along with the limit), but we're not concerned with how the internals of the repository are working.
-
-----
-
-#### Beware over-mocking!
-
-```php[|4-6]
-public function testValidateUsername(): void
-{
-    $validator = $this->createStub(Validator::class);
-    $validator->method('validateUsername')->willReturn(true);
-
-    $this->assertTrue($validator->validateUsername('sam'));
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-When working with test doubles, be careful that you're not overly-reliant on test doubles.
-
-I've actually caught tests like this before: people were trying to test a method and ended up writing a test that stubbed the SUT.
-
-This test does *nothing* except prove that PHPUnit stubs work.
 
 ---
 
