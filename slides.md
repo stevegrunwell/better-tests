@@ -466,72 +466,15 @@ Note:
 
 If you and your team can't find your tests, you're far less likely to maintain your tests (or write new tests). Take the time to make your tests discoverable and it will pay dividends.
 
-----
+For unit tests, you probably want to mirror the application file structure (e.g. tests for `app/models/User.php` are in `tests/unit/app/models/UserTest.php`).
 
-### The hierarchy of PHPUnit tests
+For integration or feature tests, try to group things by logical domain.
 
-* <!-- .element: class="fragment" --> Test suite(s) > classes > methods > assertions
-* <!-- .element: class="fragment" --> Unit tests: follow directory structure
-* <!-- .element: class="fragment" --> Feature/integration tests: It Depends&trade;
-
-Note:
-
-A well-organized test suite is easier to maintain and for others to contribute to, so it's worth talking about how we organize tests.
-
-* Test suites are comprised of one or more test classes, which contain test methods
-    * Can have multiple test suites defined (e.g. unit, feature)
-    * Test classes extend `PHPUnit\Framework\TestCase` and logically group test methods
-    * Test methods are what we think of as "tests", which make then assertions. Think of these as test *scenarios*
-* For unit tests, strongly recommend mirroring the app directory structure (e.g. unit test for `app/models/User.php` lives in `tests/app/models/UserTest.php')
-* Integration/functional tests: More dependent upon organization, easier if you're practicing DDD
-    * Remember: it's not illegal to put documentation in your test directories explaining the organization logic!
+Worst case: document your organizational scheme in a markdown file that lives in the repo.
 
 ----
 
-### Benefits of multiple test suites
-
-* <!-- .element: class="fragment" --> Clear separation of intent
-    * Unit, Feature, API, E2E, etc.
-* <!-- .element: class="fragment" --> Only run relevant test suites
-* <!-- .element: class="fragment" --> Can calculate code coverage separately
-
-Note:
-
-Remember that you can define multiple test suites, which can be a good way to split things up.
-
-By doing so, we can clearly delineate between unit vs feature tests, API tests vs E2E, etc. For example, maybe there are different base test cases to enable things like database interactions for feature (but not unit) tests.
-
-This is also the first of several ways to filter tests: maybe we want to run just unit tests, but leave out integration tests. Or maybe we only want to run E2E tests before a deployment, not for every PR. Splitting up our test suites gives us this flexibility.
-
-----
-
-### Organizing a test class
-
-1. <!-- .element: class="fragment" --> Fixtures
-2. <!-- .element: class="fragment" --> Test methods (follow order in SUT)
-    1. <!-- .element: class="fragment" --> Generic, happy path
-    2. <!-- .element: class="fragment" --> Other happy paths
-    3. <!-- .element: class="fragment" --> Argument validation
-    4. <!-- .element: class="fragment" --> Failure paths
-3. <!-- .element: class="fragment" --> Helper methods, custom assertions, etc.
-
-Note:
-
-To keep your test classes organized, I generally recommend ordering your methods like this:
-
-1. Fixtures (`setUpBeforeClass()`, `setUp()`, `tearDown()`, `tearDownAfterClass()`)
-2. Test methods, which I'll generally try to order in a way that matches the class we're testing for easier discovery
-    1. Generally I'll reserve `testMethodName()` for the most generic happy path
-    2. If there are other happy paths (e.g. return from cache if it exists, behavior dependent upon passed arguments, etc.), these come next.
-    3. Tests related to argument validation (empty strings/arrays, invalid objects, etc.)
-    4. Places where we may trigger exceptions or errors
-3. Helper methods, custom assertions, etc. (more on this in a minute)
-
-Remember that the whole point is making sure that people can find the tests relevant to the code they're working on!
-
-----
-
-#### Organizing a test class (example)
+#### Organizing a test class
 
 ```php[|1|3-11|13-16]
 protected function setUp(): void {}
@@ -557,44 +500,18 @@ Note:
 
 If we were testing a `create()` method, our test class might look something like this:
 
-* Fixture(s) up top (`setUp()`)
-* Happy paths, argument validation errors, other errors and exceptions
-* Helpers 'n such (in this case, a custom assertion)
+1. Fixture(s) up top (`setUp()`)
+2. All the tests for the `create()` method are grouped together
+    * Happy paths, argument validation errors, then other errors and exceptions
+3. Finally, helpers 'n such (in this case, a custom assertion)
 
 If the SUT also had a `delete()` method defined after `create()`, I'd put the tests for `delete()` after `testCreateThrowsIfRecordCreationFails()` and before `assertUserExists()`.
 
-----
-
-### Naming: to "test" or to `#[Test]`?
-
-```php [3-6|1,8-12]
-use PHPUnit\Framework\Attributes\Test;
-
-public function testNewUserIsRegistered(): void
-{
-    // ...
-}
-
-#[Test]
-public function itShouldRegisterANewUser(): void
-{
-    // ...
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-By convention, PHPUnit will assume that any public method on a test class that begins with "test" (e.g. `testTheThing()`) is a test method.
-
-You can also use the `#[Test]` attribute to label test methods
-    * Can be helpful when describing things in a more BDD way (e.g. `itShouldRegisterANewUser()`)
-
-Ultimately, use whatever reads best to you and be consistent!
+Remember that the whole point is making sure that people can find the tests relevant to the code they're working on!
 
 ----
 
-#### More on naming
+#### Naming test methods
 
 * <!-- .element: class="fragment" --> Include the method name in unit tests
     ```diff
@@ -616,56 +533,33 @@ Note:
 
 ### Test groups
 
-Run related tests across classes & suites
+Ways to group related tests:
 
-* <!-- .element: class="fragment" --> Feature (e.g. "Login", "Checkout")
-* <!-- .element: class="fragment" --> Domain (e.g. "Security", "Database")
-* <!-- .element: class="fragment" --> Type of class (e.g. "Models", "Controllers")
-
-Note:
-
-PHPUnit includes the ability to tag test methods and classes into groups, which are free-form and can be applied as you see fit.
-
-This is another way to filter which tests we're running.
-
-----
-
-#### Using test groups
-
-```php[|1,4,7]
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\TestCase;
-
-#[Group('Models')]
-final class UserTest extends TestCase
-{
-    #[Group('Login')]
-    public function testCanLogin(): void
-    {
-        // ...
-    }
-}
-```
-<!-- .element: class="hide-line-numbers" -->
+* <!-- .element: class="fragment" --> Test suites (e.g. unit, integration)
+* <!-- .element: class="fragment" --> <code>#[Group]</code> attribute
+* <!-- .element: class="fragment" --> <code>#[Ticket]</code> attribute
 
 ```sh
-phpunit --group Models --exclude-group=Login
+phpunit --testsuite=<suite> --group=<group> --exclude-group=<group>
 ```
 <!-- .element: class="fragment" -->
 
 Note:
 
-* In recent versions of PHPUnit, we use the `PHPUnit\Framework\Attributes\Group` attribute to apply groups
-    - These stack, so `testCanLogin()` is part of both the "Models" and "Login" groups
-* Groups can be assigned at the test class or test method level
-* Running PHPUnit with the `--group` option lets us filter which tests should be run; we can also `--exclude-group`
-    - This would run tests in `UserTest` _except_ `testCanLogin()` (or anything else in the "Login" group)
+PHPUnit provides several ways to group related tests:
+
+1. We can define multiple test suites, so we could choose to run unit, integration, end-to-end tests, etc. at different points
+2. The `PHPUnit\Framework\Attributes\Group` attribute allows us to declare free-form groups
+    * You might group by feature (e.g. "Login", "Checkout"), domain (e.g. "Security", "Database"), and/or type of class (e.g. "Models", "Controllers")
+    * These can be declared at either a test class or test method level
+3. The `PHPUnit\Framework\Attributes\Ticket` attribute is meant for linking to relevant issue tracker tickets, allowing us to group tests by ticket
+    * Under the hood, this is really just an alias for `#[Group]`
 
 ----
 
 #### Group by test size
 
-```php[|2,4-8|1,10-14]
+```php[|2,4-8|1,10-14|4-8]
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Small;
 
@@ -692,35 +586,234 @@ Note:
 
 PHPUnit also has three built-in groups (with their own attributes) to indicate relative test size: Small, Medium, and Large.
 
-These groups can be used to control test execution limits. Example: automatically fail this small test if it takes more than 1 second to execute, but maybe give the large tests upwards of 15 seconds.
+These groups are special because they not only group tests, but can also be used to control test execution limits.
 
-By default, these are 1, 10, and 60 seconds, respectively (but can be configured).
+For example: when we're enforcing time limits, PHPUnit will automatically fail `testSomethingQuickly()` if it runs for more than one second.
+
+Default time limits: small (1s), medium (10s), large (60s)
+
+---
+
+## Writing maintainable tests
+
+Note:
+
+Now that our test classes are tidy, let's talk about how to improve the test methods themselves.
 
 ----
 
-#### Group by ticket
+### Test Structure
 
-```php [|1-3]
-use PHPUnit\Framework\Attributes\Ticket;
+Arrange, Act, Assert
 
-#[Ticket('https://bugs.example.com/issues/123')]
-public function testUsernamesCannotBeEmpty(): void
+(a.k.a. "Given, When, Then")<!-- .element: class="fragment" -->
+
+Note:
+
+When writing tests, we generally want to follow a pattern of "Arrange, Act, Assert":
+
+1. Arrange: set up objects, prerequisites
+2. Act: actually call/invoke the system under test
+3. Assert: Make assertions about what happened, what we received, etc.
+
+If you're more used to a BDD-style testing approach, you may also know this as "Given, When, Then"
+
+----
+
+#### Test orchestration
+
+```php [|3-4|6-7|9-10]
+public function testEmailValidationWithInvalidEmail(): void
 {
-    // ...
+    // Arrange/Given
+    $email = 'this is not an email address';
+
+    // Act/When
+    $result = Validator::validateEmail($email);
+
+    // Assert/Then
+    $this->assertFalse($result);
 }
 ```
-<!-- .element: class="hide-line-numbers" -->
+<!-- .element: class="hide-line-numbers overflow-hidden" -->
 
-```sh
-phpunit --group https://bugs.example.com/issues/123
+Note:
+
+This test could easily be reduced to a single line, but breaking it out to show the structure.
+
+1. First, we set up what we need: this might involve constructing objects, setting up test doubles, etc.
+2. Next, we invoke the SUT (in this case, call the `validateEmail()` method on our `Validator` class)
+    - This should be expected, given the name of the test method
+3. Finally, we make our assertion(s); in this case, we want to assert that `validateEmail()` returned false when given an email address of "this is not an email address"
+
+----
+
+### Fixtures
+
+Methods that automatically run at certain points in the test lifecycle
+
+```php
+// Run before/after each test method.
+protected function setUp(): void;
+protected function tearDown(): void;
+```
+<!-- .element: class="fragment" -->
+
+```php
+// Run once at start/end of test class.
+public static function setUpBeforeClass(): void;
+public static function tearDownAfterClass(): void;
 ```
 <!-- .element: class="fragment" -->
 
 Note:
 
-Another useful way to apply groups is through the `#[Ticket]` attribute, which implicitly creates a new group around particular issue tracker URLs.
+Fixtures are methods that you can define in a test class to handle common setup/tear-down operations.
 
-This can be really helpful with bugfixes to indicate "this test was written to help fix this bug" and give people a place to gain more context about the test/fix.
+The `setUp()` and `tearDown()` methods are run before/after each test method (respectively), and are great for setting up test doubles, overriding configuration, etc. Instead of having to explicitly do this at the start of each test method, we can define fixtures to ensure that each test is starting from the same place.
+
+There are also static variants, `setUpBeforeClass()` and `tearDownAfterClass()`, which run at the beginning and end of the test class. These are useful for especially-expensive operations and/or ensuring one test class doesn't leak into another.
+
+Whenever possible, you should focus on the `setUp()` side of things
+
+----
+
+#### Fixtures via attributes
+
+```php [|1,5-9]
+use PHPUnit\Framework\Attributes\Before;
+
+trait FixturesWithAttributes
+{
+    #[Before]
+    protected function doSomethingBeforeEachTest(): void
+    {
+        // ...
+    }
+}
+```
+<!-- .element: class="hide-line-numbers" -->
+
+Note:
+
+If you're breaking things into traits and need to use fixtures, it's recommended that you use PHP attributes. This prevents any sort of conflicts arising from multiple traits defining things like `setUp()`: just mark the fixture methods with the appropriate PHP attributes: Before, After, BeforeClass, AfterClass.
+
+----
+
+#### Pro-tip: use fixtures for clean-up
+
+```php [|8|10]
+public function testUserIdDoesNotRandomlyChange(): void
+{
+    $auth = $this->stub(AuthService::class);
+    $auth->method('isAuthenticated')->willReturn(true);
+
+    AuthMiddleware::setService($auth);
+
+    $this->assertTrue(AuthMiddleware::isLoggedIn());
+
+    AuthMiddleware::reset();
+}
+```
+<!-- .element: class="hide-line-numbers" -->
+
+Note:
+
+If I had a nickel for every time I've seen this in a test, I'd be rich enough to never have to hear the phrase "static property" again.
+
+If your tests have to manipulate static properties and/or global state, be sure to reset things in a `tearDown()` fixture, **not** in the test itself.
+
+In this case, if our assertion fails, PHPUnit will bail out immediately, meaning the `AuthMiddleware::reset()` call never gets made. This can then cause our stubbed `AuthService` to leak into subsequent tests, which can be a nightmare for debugging.
+
+----
+
+### Data providers
+
+Provide multiple scenarios for the same test
+
+```php[|3]
+use PHPUnit\Framework\Attributes\DataProvider;
+
+#[DataProvider('provideSomeMethodScenarios')]
+public function testSomeMethod(string $input, string $expected): void
+{
+    // Some complicated setup, perhaps?
+
+    $this->assertSame($expected, $sut->someMethod($input));
+}
+```
+<!-- .element: class="hide-line-numbers overflow-hidden"-->
+
+----
+
+#### Data provider method
+
+<pre class="fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">/**
+ * @return array&lt;string, array{string, string}&gt;
+ */
+public static function provideSomeMethodScenarios(): array
+{
+    return [
+        'first scenario' => ['input', 'expected_output'],
+        // ...
+    ];
+}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">/**
+ * @return iterable&lt;string, array{string, string}&gt;
+ */
+public static function provideSomeMethodScenarios(): iterable
+{
+    yield 'first scenario' => ['input', 'expected_output'];
+    // ...
+}</code></pre>
+
+Note:
+
+The data provider itself is responsible for providing scenarios for the test method: in this case, we're returning an array consisting of two strings for each scenario.
+
+These will get passed to our `testSomeMethod()` test method's `$input` and `$expected` arguments.
+
+If you'd like fewer arrays in your life, it's also worth noting that we can return a generator by using `yield` statements; this can make the list much cleaner if you have a lot of scenarios.
+
+In either case, PHPUnit will use the key to create a name for the scenario (e.g. "testSomeMethod @ first scenario"), making it easier to troubleshoot failures and explain what's special about each scenario.
+
+----
+
+#### Conditionals in tests
+
+<pre class="fragment-replacement growth-spurt"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public static function provideBadTestScenarios(): iterable
+{
+    yield 'Happy path' => [
+        [
+            'input' => 'some input',
+            'expected_exception' => null,
+        ],
+    ];
+    yield 'Error state' => [
+        [
+            'input' => 'bad input',
+            'expected_exception' => \RuntimeException::class,
+        ],
+    ];
+}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">#[DataProvider('provideBadTestScenarios')]
+public static function testYourPatience(array $args): iterable
+{
+    // ...
+
+    if (!empty($args['expected_exception'])) {
+        $this->expectException($args['expected_exception']);
+        $sut->someMethod($args['input']);
+    } else {
+        $this->assertTrue($sut->someMethod($args['input']));
+    }
+}</code></pre>
+
+Note:
+
+When you first learn about data providers, it can be really tempting to put every possible scenario in there and have one test method per method being tested. I **strongly** advise against doing this, as it will quickly make your test suite unmaintainable.
+
+If someone can't look at your test method and immediately discern what's being tested, it's unlikely that anyone will ever want to touch that test again. The affirmative, happy path test methods should be separate from the negative/failure cases, which should also be separate from any exception/error expectations.
+
+Instead, consider having a couple data providers: one might provide a couple scenarios for the happy path, another might have scenarios that trigger exceptions. Don't make your tests harder to follow by prematurely lumping them into data providers to save a few keystrokes.
 
 ----
 
@@ -832,292 +925,6 @@ However, PHP is single-inheritance (classes can only extend a single class), so 
 A better approach would be to use composition rather than inheritance: break things up into traits, which you can then import only where you need them.
 
 General rule of thumb: if you find yourself with multiple base test cases in a single test suite (e.g. ApiTestCase, ModelTestCase, etc.), that could be a sign that things are over-engineered. Consider converting to traits and/or splitting into separate test suites.
-
----
-
-## Writing maintainable tests
-
-Note:
-
-Now that our test classes are tidy, let's talk about how to improve the test methods themselves.
-
-----
-
-### Test Structure
-
-Arrange, Act, Assert
-
-(a.k.a. "Given, When, Then")<!-- .element: class="fragment" -->
-
-Note:
-
-When writing tests, we generally want to follow a pattern of "Arrange, Act, Assert":
-
-1. Arrange: set up objects, prerequisites
-2. Act: actually call/invoke the system under test
-3. Assert: Make assertions about what happened, what we received, etc.
-
-If you're more used to a BDD-style testing approach, you may also know this as "Given, When, Then"
-
-----
-
-#### Test orchestration
-
-```php [|3-4|6-7|9-10]
-public function testEmailValidationWithInvalidEmail(): void
-{
-    // Arrange/Given
-    $email = 'this is not an email address';
-
-    // Act/When
-    $result = Validator::validateEmail($email);
-
-    // Assert/Then
-    $this->assertFalse($result);
-}
-```
-<!-- .element: class="hide-line-numbers overflow-hidden" -->
-
-Note:
-
-This test could easily be reduced to a single line, but breaking it out to show the structure.
-
-1. First, we set up what we need: this might involve constructing objects, setting up test doubles, etc.
-2. Next, we invoke the SUT (in this case, call the `validateEmail()` method on our `Validator` class)
-    - This should be expected, given the name of the test method
-3. Finally, we make our assertion(s); in this case, we want to assert that `validateEmail()` returned false when given an email address of "this is not an email address"
-
-----
-
-### Fixtures
-
-Methods that automatically run at certain points in the test lifecycle
-
-```php
-// Run before/after each test method.
-protected function setUp(): void;
-protected function tearDown(): void;
-```
-<!-- .element: class="fragment" -->
-
-```php
-// Run once at start/end of test class.
-public static function setUpBeforeClass(): void;
-public static function tearDownAfterClass(): void;
-```
-<!-- .element: class="fragment" -->
-
-Note:
-
-Fixtures are methods that you can define in a test class to handle common setup/tear-down operations.
-
-The `setUp()` and `tearDown()` methods are run before/after each test method (respectively), and are great for setting up test doubles, overriding configuration, etc. Instead of having to explicitly do this at the start of each test method, we can define fixtures to ensure that each test is starting from the same place.
-
-There are also static variants, `setUpBeforeClass()` and `tearDownAfterClass()`, which run at the beginning and end of the test class. These are useful for especially-expensive operations and/or ensuring one test class doesn't leak into another.
-
-Whenever possible, you should focus on the `setUp()` side of things
-
-----
-
-#### Fixtures via attributes
-
-```php [|1,5-9]
-use PHPUnit\Framework\Attributes\Before;
-
-trait FixturesWithAttributes
-{
-    #[Before]
-    protected function doSomethingBeforeEachTest(): void
-    {
-        // ...
-    }
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-If you're breaking things into traits and need to use fixtures, it's recommended that you use PHP attributes. This prevents any sort of conflicts arising from multiple traits defining things like `setUp()`: just mark the fixture methods with the appropriate PHP attributes: Before, After, BeforeClass, AfterClass.
-
-----
-
-#### Fixtures: in practice
-
-```php [|1,7,11|6,12]
-use PHPUnit\Framework\MockObject\Stub;
-use PHPUnit\Framework\TestCase;
-
-final class NewsFeedTest extends TestCase
-{
-    private NewsFeed $instance;
-    private RssFeed&Stub $rssFeed;
-
-    protected function setUp(): void
-    {
-        $this->rssFeed = $this->createStub(RssFeed::class);
-        $this->instance = new NewsFeed($this->rssFeed);
-    }
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-To see how fixtures might work in practice, let's imagine we have a `NewsFeed` class that accepts an instance of our `RssFeed` service class as a constructor argument.
-
-We might create a stub within our `setUp()` fixture, so that we know we have a fresh instance at the start of each test.
-
-Then we might create an instance of `NewsFeed`, injecting our stubbed RssFeed instance.
-
-Note that if the constructor args will change between tests, we probably wouldn't want to do this in a fixture: generally speaking, we only want to perform steps in a fixture that we intend to run for the majority—if not all—of our test methods.
-
-----
-
-#### Using properties set in fixtures
-
-```php [|7-10|12-13]
-final class NewsFeedTest extends TestCase
-{
-    // ...
-
-    public function testGetPosts(): void
-    {
-        $this->rssFeed->method('getFeedItems')->willReturn([
-            new FeedItem(/* ... */),
-            // ...
-        ]);
-
-        $posts = $this->instance->getPosts();
-        // Now, make some assertions!
-    }
-}
-```
-<!-- .element: class="growth-spurt hide-line-numbers" -->
-
-Note:
-
-Now, we'll start writing our test methods. Since we've already stubbed out the `RssFeed` and `NewsFeed` instances in our fixture, we can simply reference them as properties within our test method.
-
-First, we'll tell PHPUnit how we want our stubbed `RssFeed` instance to behave when we call `getFeedItems()`; since this is the happy path, let's say we want to return an array of `FeedItem`s.
-
-Then we call `$this->instance->getPosts()`, which presumably calls `getFeedItems()` on our `RssFeed` instance, returning those `FeedItem`s we set up. Then we can make assertions: maybe the count, contents, etc.
-
-----
-
-#### Pro-tip: use fixtures for clean-up
-
-```php [|8|10]
-public function testUserIdDoesNotRandomlyChange(): void
-{
-    $auth = $this->stub(AuthService::class);
-    $auth->method('isAuthenticated')->willReturn(true);
-
-    AuthMiddleware::setService($auth);
-
-    $this->assertTrue(AuthMiddleware::isLoggedIn());
-
-    AuthMiddleware::reset();
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-If I had a nickel for every time I've seen this in a test, I'd be rich enough to never have to hear the phrase "static property" again.
-
-If your tests have to manipulate static properties and/or global state, be sure to reset things in a `tearDown()` fixture, **not** in the test itself.
-
-In this case, if our assertion fails, PHPUnit will bail out immediately, meaning the `AuthMiddleware::reset()` call never gets made. This can then cause our stubbed `AuthService` to leak into subsequent tests, which can be a nightmare for debugging.
-
-----
-
-### Data providers
-
-Provide multiple scenarios for the same test
-
-```php[|3]
-use PHPUnit\Framework\Attributes\DataProvider;
-
-#[DataProvider('provideSomeMethodScenarios')]
-public function testSomeMethod(string $input, string $expected): void
-{
-    // Some complicated setup, perhaps?
-
-    $this->assertSame($expected, $sut->someMethod($input));
-}
-```
-<!-- .element: class="hide-line-numbers overflow-hidden"-->
-
-----
-
-#### Data provider method
-
-<pre class="fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">/**
- * @return array&lt;string, array{string, string}&gt;
- */
-public static function provideSomeMethodScenarios(): array
-{
-    return [
-        'first scenario' => ['input', 'expected_output'],
-        // ...
-    ];
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">/**
- * @return iterable&lt;string, array{string, string}&gt;
- */
-public static function provideSomeMethodScenarios(): iterable
-{
-    yield 'first scenario' => ['input', 'expected_output'];
-    // ...
-}</code></pre>
-
-Note:
-
-The data provider itself is responsible for providing scenarios for the test method: in this case, we're returning an array consisting of two strings for each scenario.
-
-These will get passed to our `testSomeMethod()` test method's `$input` and `$expected` arguments.
-
-If you'd like fewer arrays in your life, it's also worth noting that we can return a generator by using `yield` statements; this can make the list much cleaner if you have a lot of scenarios.
-
-In either case, PHPUnit will use the key to create a name for the scenario (e.g. "testSomeMethod @ first scenario"), making it easier to troubleshoot failures and explain what's special about each scenario.
-
-----
-
-#### Avoid conditionals in tests
-
-<pre class="fragment-replacement growth-spurt"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public static function provideBadTestScenarios(): iterable
-{
-    yield 'Happy path' => [
-        [
-            'input' => 'some input',
-            'expected_exception' => null,
-        ],
-    ];
-    yield 'Error state' => [
-        [
-            'input' => 'bad input',
-            'expected_exception' => \RuntimeException::class,
-        ],
-    ];
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">#[DataProvider('provideBadTestScenarios')]
-public static function testYourPatience(array $args): iterable
-{
-    // ...
-
-    if (!empty($args['expected_exception'])) {
-        $this->expectException($args['expected_exception']);
-        $sut->someMethod($args['input']);
-    } else {
-        $this->assertTrue($sut->someMethod($args['input']));
-    }
-}</code></pre>
-
-Note:
-
-When you first learn about data providers, it can be really tempting to put every possible scenario in there and have one test method per method being tested. I **strongly** advise against doing this, as it will quickly make your test suite unmaintainable.
-
-If someone can't look at your test method and immediately discern what's being tested, it's unlikely that anyone will ever want to touch that test again. The affirmative, happy path test methods should be separate from the negative/failure cases, which should also be separate from any exception/error expectations.
-
-Instead, consider having a couple data providers: one might provide a couple scenarios for the happy path, another might have scenarios that trigger exceptions. Don't make your tests harder to follow by prematurely lumping them into data providers to save a few keystrokes.
 
 ---
 
