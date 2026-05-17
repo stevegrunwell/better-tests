@@ -11,7 +11,9 @@ Steve Grunwell <!-- .element: class="byline" -->
 
 Note:
 
-A quick disclaimer: this is not necessarily an "intro to testing talk", so we're not going to get too into the weeds setting up a test runner or anything. That being said, even if you're just familiar with the basic _concepts_ of testing, there should be something useful in this session.
+A quick disclaimer: this is not necessarily an "intro to testing talk", so we're not going to get too into the weeds setting up a test runner or anything. That being said, even if you're only familiar with the basic _concepts_ of testing, there should be something useful in this session.
+
+Furthermore, the examples in this talk will focus on PHPUnit, but many of the principles will be applicable across test runners.
 
 ----
 
@@ -232,7 +234,7 @@ Note:
 
 Assertions are a crucial part of automated tests, but far too many people are content to just `assertEquals()` and call it a day.
 
-* PHPUnit has dozens of assertions, and each assertion has both an affirmative and negative variant. Not everything needs to just be `assertEquals()`
+* PHPUnit has dozens of assertions, and each assertion has both an affirmative and negative variant (e.g. `assertArrayHasKey()`, `assertArrayNotHasKey()`). Not everything needs to just be `assertEquals()`
 * You can also write your own, custom assertions: this makes it easy to encapsulate business logic and reuse these assertions across your test suite
 * Remember that at a fundamental level, every assertion boils down to true or false: does this string match what we're expecting? Do we see the array key we expect to see? Is this object of the right type?
 
@@ -260,7 +262,7 @@ One of the most frequent issues I see when reviewing tests is using `assertEqual
 
 Great way for subtle bugs to sneak through, since `0`, `false`, an empty string, null, and an empty array are all equivalent when compared with loose equality checks.
 
-Rule of thumb: default to `assertSame()` anywhere you can't find a more-specific exception, then only resort to `assertEquals()` when absolutely necessary (e.g. two separate instances of an object that are otherwise equals)
+Rule of thumb: default to `assertSame()` anywhere you can't find a more-specific assertion, then only resort to `assertEquals()` when absolutely necessary (e.g. two separate instances of an object that are otherwise equals)
 
 ----
 
@@ -288,7 +290,7 @@ A classic example of picking the right tool for the job: `assertCount()`.
 
 When the assertion fails, `assertSame()` will tell us that we "failed asserting that 3 is identical to 2."
 
-Meanwhile, `assertCount()` gives us more details: "Failed asserting that the actual size matches expected size 2."
+Meanwhile, `assertCount()` gives us more details: "Failed asserting that the actual size 3 matches expected size 2."
 
 It's a subtle difference, but makes it clear at a glance that we're comparing the size of two things.
 
@@ -418,9 +420,7 @@ Note:
 
 When writing assertion messages, make sure you're actually adding useful information.
 
-For example, the failure message for `assertFileExists()` already tells us that the given file does not exist, so a message like "assertion failed" doesn't tell us anything. Instead, we might say "The cache file should have been created" so it's obvious why this assertion
-
-For example, the output when `assertFileExists()` fails already says "Failed asserting that file (file) exists", so adding "assertion failed" doesn't tell us anything. Instead, provide context: we failed to verify that the appropriate cache file was created.
+For example, the failure message for `assertFileExists()` already tells us that the given file does not exist, so a message like "assertion failed" doesn't tell us anything. Instead, we might say "The cache file should have been created" so it's obvious why this assertion is important.
 
 Similarly, `assertEmpty()` against an array will fail with "Failed asserting that an array is empty." Instead of just repeating that, we can explain that we expect the array of posts associated with a newly-created user should be empty because they haven't yet posted anything.
 
@@ -840,8 +840,6 @@ General rule of thumb: if you find yourself with multiple base test cases in a s
 Note:
 
 Now that our test classes are tidy, let's talk about how to improve the test methods themselves.
-
-Please note that while the examples here are centered around PHPUnit, the principles are fairly universal across languages and test runners.
 
 ----
 
