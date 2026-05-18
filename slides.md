@@ -11,7 +11,7 @@ Steve Grunwell <!-- .element: class="byline" -->
 
 Note:
 
-A quick disclaimer: this is not necessarily an "intro to testing talk", so we're not going to get too into the weeds setting up a test runner or anything. That being said, even if you're only familiar with the basic _concepts_ of testing, there should be something useful in this session.
+A quick disclaimer: this is not necessarily an "intro to testing" talk, so we're not going to get too into the weeds setting up a test runner or anything. That being said, even if you're only familiar with the basic _concepts_ of testing, there should be something useful in this session.
 
 Furthermore, the examples in this talk will focus on PHPUnit, but many of the principles will be applicable across test runners.
 
@@ -109,7 +109,7 @@ When we're writing tests, it's important to remember what piece of code we're in
 
 ----
 
-### Tests that focus on implementation, not behavior
+### Tests that focus on implementation,<br> not behavior
 
 Note:
 
@@ -149,12 +149,14 @@ Running the same test multiple times should produce the same result!
 
 Note:
 
-This one seems obvious, but you might be surprised how often people mess this up.
+This one seems obvious, but you might be surprised how often people mess this up: running the same test multiple times should produce the same result!
 
-* If tests rely on another test having been run before it in order to pass, that's an unwanted dependency.
-* If tests start failing because the clock rolled over, that's an unwanted dependency.
+* If tests rely on another test having been run before it in order to pass (e.g. setting something in the global state), that's an unwanted dependency.
+* If tests start failing because the clock rolled over from one second to the next, that's an unwanted dependency.
     - Daylight Saving Time is great at catching these
 * If tests break because some third-party service is down, that's an unwanted dependency.
+
+In order to make our tests deterministic, we can use test doubles to create stand-ins that we're able to control.
 
 ----
 
@@ -234,7 +236,7 @@ Note:
 
 Assertions are a crucial part of automated tests, but far too many people are content to just `assertEquals()` and call it a day.
 
-* PHPUnit has dozens of assertions, and each assertion has both an affirmative and negative variant (e.g. `assertArrayHasKey()`, `assertArrayNotHasKey()`). Not everything needs to just be `assertEquals()`
+* PHPUnit has dozens of assertions, and most assertions have both an affirmative and negative variant (e.g. `assertArrayHasKey()`, `assertArrayNotHasKey()`). Not everything needs to just be `assertEquals()`
 * You can also write your own, custom assertions: this makes it easy to encapsulate business logic and reuse these assertions across your test suite
 * Remember that at a fundamental level, every assertion boils down to true or false: does this string match what we're expecting? Do we see the array key we expect to see? Is this object of the right type?
 
@@ -422,7 +424,7 @@ When writing assertion messages, make sure you're actually adding useful informa
 
 For example, the failure message for `assertFileExists()` already tells us that the given file does not exist, so a message like "assertion failed" doesn't tell us anything. Instead, we might say "The cache file should have been created" so it's obvious why this assertion is important.
 
-Similarly, `assertEmpty()` against an array will fail with "Failed asserting that an array is empty." Instead of just repeating that, we can explain that we expect the array of posts associated with a newly-created user should be empty because they haven't yet posted anything.
+Similarly, `assertEmpty()` against an array will fail with "Failed asserting that an array is empty." Instead of just repeating that, we can explain that we expect the array of posts associated with a newly-created user to be empty because they haven't yet posted anything.
 
 Now, if either of these assertions fail we can understand *why* the assertion was being made, which can help point us to where the error may be occurring.
 
@@ -529,69 +531,6 @@ Note:
 * When writing unit tests, include the function/method being tested in the test method name (e.g. `testCreate()` when testing the `create()` method)
 * When naming tests with specialized scenarios (such as a test that verifies that invalid usernames trigger an exception), be descriptive!
 
-----
-
-### Test groups
-
-Ways to group related tests:
-
-* <!-- .element: class="fragment" --> Test suites (e.g. unit, integration)
-* <!-- .element: class="fragment" --> <code>#[Group]</code> attribute
-* <!-- .element: class="fragment" --> <code>#[Ticket]</code> attribute
-
-```sh
-phpunit --testsuite=<suite> --group=<group> --exclude-group=<group>
-```
-<!-- .element: class="fragment" -->
-
-Note:
-
-PHPUnit provides several ways to group related tests:
-
-1. We can define multiple test suites, so we could choose to run unit, integration, end-to-end tests, etc. at different points
-2. The `PHPUnit\Framework\Attributes\Group` attribute allows us to declare free-form groups
-    * You might group by feature (e.g. "Login", "Checkout"), domain (e.g. "Security", "Database"), and/or type of class (e.g. "Models", "Controllers")
-    * These can be declared at either a test class or test method level
-3. The `PHPUnit\Framework\Attributes\Ticket` attribute is meant for linking to relevant issue tracker tickets, allowing us to group tests by ticket
-    * Under the hood, this is really just an alias for `#[Group]`
-
-----
-
-#### Group by test size
-
-```php[|2,4-8|1,10-14|4-8]
-use PHPUnit\Framework\Attributes\Large;
-use PHPUnit\Framework\Attributes\Small;
-
-#[Small]
-public function testSomethingQuickly(): void
-{
-    // ...
-}
-
-#[Large]
-public function testSomethingMoreComplicated(): void
-{
-    // ...
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-```sh
-phpunit --enforce-time-limit
-```
-<!-- .element: class="fragment" -->
-
-Note:
-
-PHPUnit also has three built-in groups (with their own attributes) to indicate relative test size: Small, Medium, and Large.
-
-These groups are special because they not only group tests, but can also be used to control test execution limits.
-
-For example: when we're enforcing time limits, PHPUnit will automatically fail `testSomethingQuickly()` if it runs for more than one second.
-
-Default time limits: small (1s), medium (10s), large (60s)
-
 ---
 
 ## Writing maintainable tests
@@ -678,28 +617,6 @@ Whenever possible, you should focus on the `setUp()` side of things
 
 ----
 
-#### Fixtures via attributes
-
-```php [|1,5-9]
-use PHPUnit\Framework\Attributes\Before;
-
-trait FixturesWithAttributes
-{
-    #[Before]
-    protected function doSomethingBeforeEachTest(): void
-    {
-        // ...
-    }
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-Note:
-
-If you're breaking things into traits and need to use fixtures, it's recommended that you use PHP attributes. This prevents any sort of conflicts arising from multiple traits defining things like `setUp()`: just mark the fixture methods with the appropriate PHP attributes: Before, After, BeforeClass, AfterClass.
-
-----
-
 #### Pro-tip: use fixtures for clean-up
 
 ```php [|8|10]
@@ -727,264 +644,52 @@ In this case, if our assertion fails, PHPUnit will bail out immediately, meaning
 
 ----
 
-### Data providers
+### Stay <abbr title="Don't Repeat Yourself">DRY</abbr>!
 
-Provide multiple scenarios for the same test
+Break out common patterns into traits:
 
-```php[|3]
-use PHPUnit\Framework\Attributes\DataProvider;
-
-#[DataProvider('provideSomeMethodScenarios')]
-public function testSomeMethod(string $input, string $expected): void
-{
-    // Some complicated setup, perhaps?
-
-    $this->assertSame($expected, $sut->someMethod($input));
-}
-```
-<!-- .element: class="hide-line-numbers overflow-hidden"-->
-
-----
-
-#### Data provider method
-
-<pre class="fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">/**
- * @return array&lt;string, array{string, string}&gt;
- */
-public static function provideSomeMethodScenarios(): array
-{
-    return [
-        'first scenario' => ['input', 'expected_output'],
-        // ...
-    ];
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">/**
- * @return iterable&lt;string, array{string, string}&gt;
- */
-public static function provideSomeMethodScenarios(): iterable
-{
-    yield 'first scenario' => ['input', 'expected_output'];
-    // ...
-}</code></pre>
-
-Note:
-
-The data provider itself is responsible for providing scenarios for the test method: in this case, we're returning an array consisting of two strings for each scenario.
-
-These will get passed to our `testSomeMethod()` test method's `$input` and `$expected` arguments.
-
-If you'd like fewer arrays in your life, it's also worth noting that we can return a generator by using `yield` statements; this can make the list much cleaner if you have a lot of scenarios.
-
-In either case, PHPUnit will use the key to create a name for the scenario (e.g. "testSomeMethod @ first scenario"), making it easier to troubleshoot failures and explain what's special about each scenario.
-
-----
-
-#### Conditionals in tests
-
-<pre class="fragment-replacement growth-spurt"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public static function provideBadTestScenarios(): iterable
-{
-    yield 'Happy path' => [
-        [
-            'input' => 'some input',
-            'expected_exception' => null,
-        ],
-    ];
-    yield 'Error state' => [
-        [
-            'input' => 'bad input',
-            'expected_exception' => \RuntimeException::class,
-        ],
-    ];
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">#[DataProvider('provideBadTestScenarios')]
-public static function testYourPatience(array $args): iterable
-{
-    // ...
-
-    if (!empty($args['expected_exception'])) {
-        $this->expectException($args['expected_exception']);
-        $sut->someMethod($args['input']);
-    } else {
-        $this->assertTrue($sut->someMethod($args['input']));
-    }
-}</code></pre>
-
-Note:
-
-When you first learn about data providers, it can be really tempting to put every possible scenario in there and have one test method per method being tested. I **strongly** advise against doing this, as it will quickly make your test suite unmaintainable.
-
-If someone can't look at your test method and immediately discern what's being tested, it's unlikely that anyone will ever want to touch that test again. The affirmative, happy path test methods should be separate from the negative/failure cases, which should also be separate from any exception/error expectations.
-
-Instead, consider having a couple data providers: one might provide a couple scenarios for the happy path, another might have scenarios that trigger exceptions. Don't make your tests harder to follow by prematurely lumping them into data providers to save a few keystrokes.
-
-----
-
-### A different brand of <abbr title="Don't Repeat Yourself">DRY</abbr>
-
-Readability begets maintainability
-
-Note:
-
-Tests will inherently have some duplication, but that's okay!
-
-A more readable test class will be a more maintainable test class, so don't go overboard trying to keep things DRY.
-
-----
-
-#### Break out common patterns
-
-<pre class="fragment-replacement code-wrapper growth-spurt"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">use GuzzleHttp\Client;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Psr7\Response;
-
-$client = new Client([
-    'handler' => HandlerStack::create(new MockHandler([
-        new Response(200, [], 'First response'),
-        new Response(404)
-    ]),
-]);</code><span class="fragment fade-out" data-fragment-index="1"><code class="hljs php language-php fragment fade-in" data-fragment-index="0">use GuzzleHttp\Client;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use Psr\Http\Message\ResponseInterface;
-
-private function mockGuzzleClient(
-    ResponseInterface ...$responses
-): Client {
-    return new Client([
-        'handler' => HandlerStack::create(
-            new MockHandler($responses)
-        ),
-    ]);
-}</code></span><code class="hljs php language-php fragment fade-in" data-fragment-index="1">use GuzzleHttp\Psr7\Response;
-
-public function testHandlingOf404Errors(): void
-{
-    $client = $this->mockGuzzleClient(new Response(404));
-    $service = new MyService($client);
-
-    // ...
-}</code></pre>
-
-Note:
-
-If you've ever used Guzzle, you've probably had to use this pattern to stub out HTTP responses. However, this can be tedious to write over and over again.
-
-We can simplify the process by creating a `mockGuzzleClient()` method, which accepts any number of `ResponseInterface` instances.
-
-Now, to construct a client, we can just call `$this->mockGuzzleClient()` with our expected responses, then inject the client into whatever we're testing.
-
-We can even take this a step further and break it out into a trait like `MocksGuzzle`, which could be applied to any test class that needs it.
-
-----
-
-#### Testing traits
-
-* <!-- .element: class="fragment" --> Setting up user/application state
 * <!-- .element: class="fragment" --> Custom assertions
-* <!-- .element: class="fragment" --> Injecting mocks into global state
-* <!-- .element: class="fragment" --> Common setUp/tearDown fixtures
+* <!-- .element: class="fragment" --> Helper methods
+* <!-- .element: class="fragment" --> Fixtures
 
 Note:
 
-Traits can be helpful for encapsulating common patterns across your test suite.
+Just like in our production code, we want to stay as DRY as possible. However, it's also important that people are able to follow what's happening in tests, so when it comes down to readability vs DRY, err on the side of being able to read the tests!
 
-* This could be things like mocking Guzzle or setting up users, seeding activity, etc.
-* Maybe you have some custom assertions that you want to make available for a subset of tests
-* If your app relies on global state, you might want a single, canonical way of setting that up for tests
-* Perhaps you have specific setup/teardown fixtures that you need to run
+We can encourage reusability by breaking common patterns into traits, which should be preferred over sub-classing `PHPUnit\Framework\TestCase`, as it lets us load only the components we need on a per-test class basis (composition v inheritance)
+
+Great examples of things to break out into traits include:
+
+* Custom PHPUnit assertions
+* Helper methods that get used across multiple test classes
+* Common fixtures that might be necessary to properly set up application state
 
 ----
 
-#### Testing traits vs base TestCases
+#### Fixtures via attributes
 
-```php[|1,5|2-3,7-8]
-use PHPUnit\Framework\TestCase;
-use Test\Support\AuthAssertions;
-use Test\Support\MocksGuzzle;
+```php [|1,5-9]
+use PHPUnit\Framework\Attributes\Before;
 
-final class MyClassTest extends TestCase
+trait FixturesWithAttributes
 {
-    use AuthAssertions;
-    use MocksGuzzle;
-
-    // ...
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-**Pro-tip:** <u>one</u> base class per test suite
-<!-- .element: class="fragment" -->
-
-Note:
-
-PHPUnit test classes extend `PHPUnit\Framework\TestCase`, but you are able to create custom sub-classes.
-
-Example: setting up basic application state, database connectivity for integration tests, expose custom assertions, etc.
-
-However, PHP is single-inheritance (classes can only extend a single class), so this can lead to base test cases getting bloated.
-
-A better approach would be to use composition rather than inheritance: break things up into traits, which you can then import only where you need them.
-
-General rule of thumb: if you find yourself with multiple base test cases in a single test suite (e.g. ApiTestCase, ModelTestCase, etc.), that could be a sign that things are over-engineered. Consider converting to traits and/or splitting into separate test suites.
-
----
-
-## Testing beyond the happy path
-
-* <!-- .element: class="fragment" --> What are the normal ("happy") routes?
-* <!-- .element: class="fragment" --> What are the error states?
-* <!-- .element: class="fragment" --> How do we handle invalid input?
-
-Note:
-
-A common gap in test suites is that people are much more likely to test the so-called "happy" paths—when everything goes right—than they are to test what happens when things go wrong.
-
-When writing tests, it's important to write tests that verify error behaviors. Are we throwing the appropriate exception? Are we leaving things in a half-modified state?
-
-Furthermore, what happens if we're given invalid data? We're expecting an email address as a string, but we're given an empty string: do we keep processing? Should we expect a validation error? What about a negative query limit?
-
-Some of the most valuable tests are those that prove how things work under non-ideal situations.
-
-----
-
-### How many paths can you find?
-
-```php [|3-11|3,9-11|4-8|5]
-public function getClient(): Client
-{
-    if (!isset($this->client)) {
-        try {
-            $this->client = new Client($this->authToken);
-        } catch (ClientException $e) {
-            throw new InvalidClientException(/* ... */);
-        }
+    #[Before]
+    protected function doSomethingBeforeEachTest(): void
+    {
+        // ...
     }
-
-    return $this->client;
 }
 ```
 <!-- .element: class="hide-line-numbers" -->
 
 Note:
 
-Given this `getClient()` method, let's look at all of the possible ways we can work through it:
+If you're breaking things into traits and need to use fixtures, it's recommended that you use PHP attributes. This prevents any sort of conflicts arising from multiple traits defining things like `setUp()`: just mark the fixture methods with the appropriate PHP attributes: Before, After, BeforeClass, AfterClass.
 
-1. If we don't have a client yet, we need to construct one. Do we get an instance of Client?
-2. If we already have a client, are we getting back the same, cached instance with each call?
-3. If constructing a new Client causes a `ClientException` to be thrown, are we then re-throwing as an `InvalidClientException`?
-4. Are there other exceptions that might occur that we might intentionally not be catching?
-5. What happens if `$this->authToken` is empty or of an invalid type?
 
 ---
 
 ## Writing tests for existing code
-
-Note:
-
-I've thrown a lot at you so far, so let's start applying some of these practices with actual code:
-
-----
-
-### Simple unit tests
 
 ```php
 namespace App;
@@ -1041,9 +746,9 @@ If we don't yet have a unit test class for this `Str` class, let's create one.
 
 Three approaches:
 
-1. <!-- .element: class="fragment" -->One method, many assertions
-2. <!-- .element: class="fragment" -->Many methods, one assertion each
-3. <!-- .element: class="fragment" -->One method, data provider
+1. <!-- .element: class="fragment" --> One method, many assertions
+2. <!-- .element: class="fragment" --> Many methods, one assertion each
+3. <!-- .element: class="fragment" --> One method, data provider
 
 Note:
 
@@ -1125,6 +830,7 @@ public static function provideSnakeCaseScenarios(): iterable
     yield 'Already in snake case' => ['hello_there', 'hello_there'];
     yield 'camelCase' => ['helloThere', 'hello_there'];
     yield 'PascalCase' => ['HelloThere', 'hello_there'];
+    yield 'Empty string' => ['', ''];
 }
 ```
 <!-- .element: style="font-size: .45em;" -->
@@ -1133,7 +839,7 @@ Note:
 
 (May be hard to read)
 
-For each of this scenarios, we add an entry to our data provider. This can use generators as I've done here or use an associative array, but PHPUnit will pick up the keys we use when describing the test (e.g. `testSnakeCase()` with scenario "Multiple words"). This also provides better context as to *what* is being tested, which makes the tests more maintainable.
+For each of this scenarios, we add an entry to our data provider. This can use generators as I've done here or use an associative array, but PHPUnit will pick up the keys we use when describing the test (e.g. "testSnakeCase() @ Multiple words"). This also provides better context as to *what* is being tested, which makes the tests more maintainable.
 
 Each line here results in a new test being run, which can pass or fail independently of the other scenarios; if you come up with another scenario (like leading/trailing underscores), it's simply a matter of adding it to your data provider!
 
@@ -1170,105 +876,90 @@ Generally speaking, the stricter your types, the less you need to explicitly wri
 
 ----
 
-### Testing More-Complex Logic
+### Testing beyond the happy path
 
-```php[|5-7|9-11|]
-public function makeThingsSoComplicated(
-    string $path,
-    array $args = []
-): ?string {
-    if (empty($path)) {
-        throw new \InvalidArgumentException('$path cannot be empty!');
-    }
-
-    if ($args['skipComplications'] ?? false) {
-        return null;
-    }
-
-    return str_rot13(md5($path . json_encode($args)));
-}
-```
-<!-- .element: class="hide-line-numbers growth-spurt" -->
+* <!-- .element: class="fragment" --> What are the normal ("happy") routes?
+* <!-- .element: class="fragment" --> What are the error states?
+* <!-- .element: class="fragment" --> How do we handle invalid input?
 
 Note:
 
-This is a silly example, but demonstrates my point well: how many paths do we have through this method?
+A common gap in test suites is that people are much more likely to test the so-called "happy" paths—when everything goes right—than they are to test what happens when things go wrong.
 
-1. The happy path, which results in a rot13'd, md5 checksum of the path and a JSON representation of the $args array
-2. If we pass an empty $path, we should get an exception
-3. If we set a truthy "skipComplications" key in $args, we should get null
-4. If we pass a false-y skipComplications, we should still get that md5 checksum
+When writing tests, it's important to write tests that verify error behaviors. Are we throwing the appropriate exception? Are we leaving things in a half-modified state?
 
-I find that it can be really helpful to start from the top and read through, noting any places where the behavior might change. Each of these should be its own test scenario.
+Furthermore, what happens if we're given invalid data? We're expecting an email address as a string, but we're given an empty string: do we keep processing? Should we expect a validation error? What about a negative query limit?
+
+Some of the most valuable tests are those that prove how things work under non-ideal situations.
 
 ----
 
-#### Testing makeThingsSoComplicated()
+#### How many paths can you find?
 
-```php[|1-9|11-15]
-public function testMakeThingsSoComplicated(): void
+```php [|3-11|3,9-11|4-8|5]
+public function getClient(): Client
 {
-    $this->assertSame(
-        'o0478736258o8233272rr9727q21pq60',
-        $this->instance->makeThingsSoComplicated('Oh,', [
-            'hello' => 'there',
-        ]),
-    );
-}
+    if (!isset($this->client)) {
+        try {
+            $this->client = new Client($this->authToken);
+        } catch (ClientException $e) {
+            throw new InvalidClientException(/* ... */);
+        }
+    }
 
-public function testMakeThingsSoComplicatedThrowsOnEmptyPath(): void
-{
-    $this->expectException(\InvalidArgumentException::class);
-    $this->instance->makeThingsSoComplicated('', ['abc' => '123']);
+    return $this->client;
 }
 ```
-<!-- .element: class="hide-line-numbers growth-spurt" -->
+<!-- .element: class="hide-line-numbers" -->
 
 Note:
 
-Let's work down that list of scenarios:
+Given this `getClient()` method, let's look at all of the possible ways we can work through it:
 
-1. First we have the happy path: if we call it with $path "Oh," and $args ['hello' => 'there'], we expect to see this rot13'd checksum
-    - In this case, I precalculated it. You might also choose to generate that checksum within the test to make it more obvious where it's coming from
-2. Next, let's verify that we throw an `InvalidArgumentException` when $path is empty
-
-Notice that these tests are very simple: they're testing a single scenario and, since this class has very little setup work, we could do that in a fixture and just call the method on `$this->instance`. However, if suddenly `testMakeThingsSoComplicatedThrowsOnEmptyPath` starts failing, we know exactly where to look.
-
+1. If we don't have a client yet, we need to construct one. Do we get an instance of Client?
+2. If we already have a client, are we getting back the same, cached instance with each call?
+3. If constructing a new Client causes a `ClientException` to be thrown, are we then re-throwing as an `InvalidClientException`?
+4. Are there other exceptions that might occur that we might intentionally not be catching?
+5. What happens if `$this->authToken` is empty or of an invalid type?
 
 ----
 
-#### Testing makeThingsSoComplicated()
+###### Warning: avoid conditionals in tests!
 
-```php[|1-8|10-18]
-public function testMakeThingsSoComplicatedSkipComplications(): void
+<pre class="fragment-replacement growth-spurt"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public static function provideBadTestScenarios(): iterable
 {
-    $this->assertNull(
-        $this->instance->makeThingsSoComplicated('Hello!', [
-            'skipComplications' => true,
-        ]),
-    );
-}
+    yield 'Happy path' => [
+        [
+            'input' => 'some input',
+            'expected_exception' => null,
+        ],
+    ];
+    yield 'Error state' => [
+        [
+            'input' => 'bad input',
+            'expected_exception' => \RuntimeException::class,
+        ],
+    ];
+}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">#[DataProvider('provideBadTestScenarios')]
+public static function testYourPatience(array $args): iterable
+{
+    // ...
 
-public function testMakeThingsSoComplicatedWithFalseySkipComplications(): void
-{
-    $this->assertSame(
-        '930268r85896s9976594043n5s9q9s31',
-        $this->instance->makeThingsSoComplicated('Hello!', [
-            'skipComplications' => false,
-        ]),
-    );
-}
-```
-<!-- .element: class="hide-line-numbers growth-spurt" style="font-size:.45em;" -->
+    if (!empty($args['expected_exception'])) {
+        $this->expectException($args['expected_exception']);
+        $sut->someMethod($args['input']);
+    } else {
+        $this->assertTrue($sut->someMethod($args['input']));
+    }
+}</code></pre>
 
 Note:
 
-To round out the other two scenarios, we do the same thing:
+When you first learn about data providers, it can be really tempting to put every possible scenario in there and have one test method per method being tested. I **strongly** advise against doing this, as it will quickly make your test suite unmaintainable.
 
-1. If we set the "skipComplications" argument to true, we expect to get a null return value
-2. If "skipComplications" is there but not truthy, we expect another checksum (just like in the first test)
+If someone can't look at your test method and immediately discern what's being tested, it's unlikely that anyone will ever want to touch that test again. The affirmative, happy path test methods should be separate from the negative/failure cases, which should also be separate from any exception/error expectations.
 
-With these four tests, we've covered every logical branch through this method. If someone removes the empty() check, or skipComplications changes, or someone changes how the checksums are calculated...we'll know.
+Instead, consider having a couple data providers: one might provide a couple scenarios for the happy path, another might have scenarios that trigger exceptions. Don't make your tests harder to follow by prematurely lumping them into data providers to save a few keystrokes.
 
 ----
 
@@ -1297,7 +988,7 @@ If you're writing new code, you might even consider _only_ writing your tests, t
 
 Note:
 
-Now that we've backfilled our test suite, let's conclude by talking about regression tests.
+Now that we've backfilled our test suite, let's talk quickly about regression tests.
 
 ----
 
