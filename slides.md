@@ -562,7 +562,7 @@ If you're more used to a BDD-style testing approach, you may also know this as "
 #### Test orchestration
 
 ```php [|3-4|6-7|9-10]
-public function testEmailValidationWithInvalidEmail(): void
+public function testValidateEmailWithInvalidEmail(): void
 {
     // Arrange/Given
     $email = 'this is not an email address';
@@ -940,7 +940,7 @@ Given this `getClient()` method, let's look at all of the possible ways we can w
             'expected_exception' => \RuntimeException::class,
         ],
     ];
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">#[DataProvider('provideBadTestScenarios')]
+}</code><code class="hljs php language-php fragment fade-in hide-line-numbers" data-fragment-index="0" data-line-numbers="6-11">#[DataProvider('provideBadTestScenarios')]
 public static function testYourPatience(array $args): iterable
 {
     // ...
@@ -1006,7 +1006,7 @@ Writing regression tests can be one of the most effective way to fix bugs and en
     - Tests should be failing, because we haven't fixed the bug yet!
 2. Now we fix the bug; we know it's fixed because our tests should now be passing.
     - If the bug is "fixed" but the tests still fail, either the fix is incomplete or tests are bad!
-3. Commit the new tests to your test suite, ideally using the `#[Ticket]` attribute to point back to the original bug ticket
+3. Commit the new tests to your test suite
     - If your fix ever gets removed/squashed/whatever, the tests will catch it and say "hey, we already fixed this!"
 
 ----
@@ -1033,21 +1033,19 @@ We _should_ be throwing a `DoNotSnuggleException` (which we originally implement
 
 We'll write a quick test that verifies that we get a `DoNotSnuggleException` when we attempt to snuggle a fish; before we fix the bug, this test will fail. However, once we fix the bug, the test should pass.
 
-Note that I included the `#[Ticket]` annotation, which creates a new group for this issue URL. It also makes it very clear that this test was a bugfix, and the URL where someone could get more context if they needed it.
+Note that I included the `#[Ticket]` attribute, which creates a new group for this issue URL. It also makes it very clear that this test was a bugfix, and the URL where someone could get more context if they needed it.
 
 ---
 
 ## Test coverage
 
-----
-
-### What is test coverage?
-
 The percentage of the total codebase that was executed by the test suite(s)
 
 Note:
 
-We'll spend a few minutes on this topic, but it boils down to this: test/code coverage is simply what percentage of the codebase was executed when we ran the test suite.
+Finally, let's wrap up spending a couple minutes talking about test coverage.
+
+Test/code coverage is simply what percentage of the codebase was executed when we ran the test suite.
 
 ----
 
@@ -1064,11 +1062,11 @@ We'll spend a few minutes on this topic, but it boils down to this: test/code co
 
 Note:
 
-Often when we talk about "code coverage", we're referring to line coverage: which lines were—or were not—executed as we run the test suite?
+Often when we talk about "test coverage", we're referring to line coverage: which lines were—or were not—executed as we run the test suite?
 
 However, this doesn't give us the full picture, so we can also calculate branch coverage (are all permutations through a portion of code covered by tests?) and function coverage (which functions/methods were actually executed?).
 
-There are also other forms—namely statement and condition coverage—but these three (especially line) are what most people think about. However, as you'll see, code coverage might not be all it's cracked up to be:
+There are also other forms—namely statement and condition coverage—but these three (especially line) are what most people think about. However, as you'll see, test coverage might not be all it's cracked up to be:
 
 ----
 
@@ -1117,8 +1115,6 @@ final class BooleanTest extends TestCase
 Note:
 
 Now we'll write a test, and assert that the return value of the `true()` method is indeed true.
-
-Note that we're also using the `#[CoversClass]` attribute, which lets us specify "this test class is only meant to cover the Boolean class, so don't count this towards any other class' test coverage". This is a good habit that can be enforced by PHPUnit.
 
 We haven't tested the `false()` method, so we've tested 50% of the `Boolean` class.
 
