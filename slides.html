@@ -27,10 +27,10 @@ Steve Grunwell <!-- .element: class="byline" -->
 [@stevegrunwell@phpc.social](https://phpc.social/@stevegrunwell)
 [stevegrunwell.com/slides/better-tests](https://stevegrunwell.com/slides/better-tests)
 </script></section><section ><section data-markdown><script type="text/template">
-## Fundamentals of automated testing
+## Fundamentals of<br> automated testing
 
-<aside class="notes"><p>A quick disclaimer: this is not necessarily an &quot;intro to testing talk&quot;, so we&#39;re not going to get into the weeds setting up a test runner or talking about what tests are. That being said, even if you&#39;re just familiar with the basic <em>concepts</em> of testing, therre should be something useful in this session.</p>
-<p>Additionally, examples will focus on PHPUnit, but the principles should be pretty universal. Even if you&#39;re on an older version of PHPUnit (or PHP) that predates attributes, most of this functionality was previously exposed via PHP docblock annotations.</p>
+<aside class="notes"><p>A quick disclaimer: this is not necessarily an &quot;intro to testing&quot; talk, so we&#39;re not going to get too into the weeds setting up a test runner or anything. That being said, even if you&#39;re only familiar with the basic <em>concepts</em> of testing, there should be something useful in this session.</p>
+<p>Furthermore, the examples in this talk will focus on PHPUnit, but many of the principles will be applicable across test runners.</p>
 </aside></script></section><section data-markdown><script type="text/template">
 ### Why do we test?
 
@@ -44,6 +44,7 @@ Steve Grunwell <!-- .element: class="byline" -->
 <ul>
 <li>Manual testing is toilsome and rife with opportunities for human error<ul>
 <li>Automated testing makes it trivial to run, and ensure that it runs the same steps each time</li>
+<li>Running tests as part of CI helps ensure that new code isn&#39;t breaking existing functionality</li>
 </ul>
 </li>
 <li>We want to make sure things do what we expect them to, and continue to do so as things change<ul>
@@ -66,10 +67,10 @@ Steve Grunwell <!-- .element: class="byline" -->
 <aside class="notes"><p>If you&#39;ve worked with automated testing before, you&#39;ve probably seen this graphic: the &quot;Test Automation Pyramid&quot; (or simply &quot;Test Pyramid&quot;).</p>
 <p>The general concept is that we have a strong foundation of unit tests: these should be easy to write and quick to run. Generally we&#39;ll use PHPUnit for these.</p>
 <p>The next level up is integration or feature tests: they might be more involved to write and take a bit longer to run, but they verify that the individual components integrate as we expect them to. This is also often in PHPUnit, but you might opt to use something like Behat instead.</p>
-<p>The top layer is end-to-end tests: these might involve scripting a browser with a tool like Playwright, and they will likely be the most time-consuming to write and execute.</p>
-<p>It&#39;s important to remember that this is a guideline! Write the tests that are most meaningful for your codebase!
-    * E.g. a library without a UI probably doesn&#39;t need any E2E tests, and even the integration tests might be sparse
-    * Sometimes when adding tests to existing code, it can be helpful to start at the top</p>
+<p>The top layer is end-to-end or UI tests: these might involve scripting a browser with a tool like Playwright, and they will likely be the most time-consuming to write and execute.</p>
+<p>It&#39;s important to remember that this is a guideline! Write the tests that are most meaningful for your codebase!</p>
+<p>E.g. a library without a UI probably doesn&#39;t need any E2E tests, and even the integration tests might be sparse</p>
+<p>Sometimes when adding tests to existing code, it can be helpful to start at the top</p>
 </aside></script></section><section data-markdown><script type="text/template">
 ### Testing beyond the pyramid
 
@@ -80,438 +81,17 @@ Steve Grunwell <!-- .element: class="byline" -->
 <aside class="notes"><p>&quot;Automated testing&quot; covers so much more beyond that pyramid, though:</p>
 <ul>
 <li>Linting (checking coding standards)</li>
-<li>Static code analysis (find bugs, logical errors, etc. via heueristics run against code)</li>
+<li>Static code analysis (find bugs, logical errors, etc. via heuristics run against code)</li>
 <li>Anything else you might throw into a CI pipeline</li>
 </ul>
-<p>For this talk, we&#39;re going to focus on our unit and integration test suites. However, many of the principles will still apply throughout the stack, and a well-tested application will likely include more than just unit tests; use the right tool for the job!</p>
+<p>For this talk, we&#39;re going to focus on our unit and integration test suites. However, be aware that a well-rounded CI pipeline will likely include more than just unit/integration tests, and these tools all have their individual roles to play.</p>
 </aside></script></section></section><section ><section data-markdown><script type="text/template">
-## Principles of Good Tests&trade;
+## Not all tests are made equal
 
-<aside class="notes"><p>Now that we&#39;re all caught up, let&#39;s talk about some of the attributes we find in effective tests:</p>
+<aside class="notes"><p>The difference between a good test and a bad test is the difference between a relaxing weekend and being paged at 2am.</p>
+<p>Just because tests <em>exist</em>, that doesn&#39;t mean that they&#39;re good or useful. Let&#39;s look at some common issues with tests:</p>
 </aside></script></section><section data-markdown><script type="text/template">
-### Tests should be descriptive,<br> not prescriptive
-
-Describe the behavior, not the implementation!
-
-<aside class="notes"><ul>
-<li>Trap I admittedly fell into early in my testing journey</li>
-<li>A unit test should be given <code>$input</code>, I expect this <code>$output</code></li>
-<li>Unless you&#39;re intentionally testing side-effects, we shouldn&#39;t care that a log was written or that some internal function was called with specific arguments</li>
-<li>Writing tests this way makes tests brittle and harder to maintain</li>
-</ul>
-</aside></script></section><section data-markdown><script type="text/template">
-### Tests shouldn't just test the happy path! @TODO
-
-```php
-class SandwichFactory
-{
-    public static function pbj(BreadInterface $bread, Spread $spread)
-    {
-        if ($bread->isEdible()) {
-            throw new Yuckception('This bread is no good!');
-        }
-
-        if (!$spread instanceof JamOrJelly) {
-            throw new InvalidSpreadException('Do you even know what jelly is?');
-        }
-
-
-    }
-}
-```
-
-* Happy path
-* How is invalid input handled?
-    - Push this off onto typehints, value objects
-* Exceptions and error cases
-</script></section><section data-markdown><script type="text/template">
-### Tests should only cover what you own @TODO
-
-* Test integration points, not internals of libraries
-* Language features are (probably) not broken
-* Internals can change, but that shouldn't change your tests
-
-<aside class="notes"><p>Good test suites also recognize the boundaries of <em>what</em> we test: generally speaking, we shouldn&#39;t be writing tests for things we don&#39;t own.</p>
-<p>That&#39;s not to say we don&#39;t want to test the integration points, but all we should need to worry about is that we&#39;re calling that code with a certain set of arguments and getting a specific result. If we can&#39;t reach some external API, our tests shouldn&#39;t be failing because we should not actually be hitting an external API in our tests.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### Tests should be deterministic
-
-Running the same test multiple times should produce the same result!
-
-<aside class="notes"><p>This one seems obvious, but you might be surprised how often people mess this up.</p>
-<ul>
-<li>If tests rely on another test having been run before it in order to pass, that&#39;s an unwanted dependency.</li>
-<li>If tests start failing because the clock rolled over, that&#39;s an unwanted dependency.<ul>
-<li>Daylight Saving Time is great at catching these</li>
-</ul>
-</li>
-<li>If tests break because some third-party service is down, that&#39;s an unwanted dependency.</li>
-</ul>
-</aside></script></section></section><section ><section data-markdown><script type="text/template">
-## Organizing your tests
-
-> You miss 100% of the tests you can't find <cite>Me, just now</cite>
-
-<aside class="notes"><p>If you and your team can&#39;t find your tests, you&#39;re far less likely to maintain your tests (or write new tests). Take the time to make your tests discoverable and it will pay dividends.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### The heirarchy of PHPUnit tests
-
-* <!-- .element: class="fragment" --> Test suite(s) > classes > methods > assertions
-* <!-- .element: class="fragment" --> Unit tests: follow directory structure
-* <!-- .element: class="fragment" --> Feature/integration tests: It Depends&trade;
-
-<aside class="notes"><p>A well-organized test suite is easier to maintain and for others to contribute to, so it&#39;s worth talking about how we organize tests.</p>
-<ul>
-<li>Test suites are comprised of one or more test classes, which contain test methods<ul>
-<li>Can have multiple test suites defined (e.g. unit, feature)</li>
-<li>Test classes extend <code>PHPUnit\Framework\TestCase</code> and logically group test methods</li>
-<li>Test methods are what we think of as &quot;tests&quot;, which make then assertions. Think of these as test <em>scenarios</em></li>
-</ul>
-</li>
-<li>For unit tests, strongly recommend mirroring the app directory structure (e.g. unit test for <code>app/models/User.php</code> lives in `tests/app/models/UserTest.php&#39;)</li>
-<li>Integration/functional tests: More dependent upon organization, easier if you&#39;re practicing DDD<ul>
-<li>Remember: it&#39;s not illegal to put documentation in your test directories explaining the organization logic!</li>
-</ul>
-</li>
-</ul>
-</aside></script></section><section data-markdown><script type="text/template">
-### Benefits of multiple test suites
-
-* <!-- .element: class="fragment" --> Clear separation of intent
-    * Unit, Feature, API, E2E, etc.
-* <!-- .element: class="fragment" --> Only run relevant test suites
-* <!-- .element: class="fragment" --> Can calculate code coverage separately
-
-<aside class="notes"><p>Remember that you can define multiple test suites, which can be a good way to split things up.</p>
-<p>By doing so, we can clearly delineate between unit vs feature tests, API tests vs E2E, etc. For example, maybe there are different base test casess to enable things like database interactions for feature (but not unit) tests.</p>
-<p>This is also the first of several ways to filter tests: maybe we want to run just unit tests, but leave out integration tests. Or maybe we only want to run E2E tests before a deployment, not for every PR. Splitting up our test suites gives us this flexibility.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### Organizing a test class
-
-1. <!-- .element: class="fragment" --> Fixtures
-2. <!-- .element: class="fragment" --> Test methods (follow order in SUT)
-    1. <!-- .element: class="fragment" --> Generic, happy path
-    2. <!-- .element: class="fragment" --> Other happy paths
-    3. <!-- .element: class="fragment" --> Argument validation
-    4. <!-- .element: class="fragment" --> Failure paths
-3. <!-- .element: class="fragment" --> Helper methods, custom assertions, etc.
-
-<aside class="notes"><p>To keep your test classes organized, I generally recommend ordering your methods like this:</p>
-<ol>
-<li>Fixtures (<code>setUpBeforeClass()</code>, <code>setUp()</code>, <code>tearDown()</code>, <code>tearDownAfterClass()</code>)</li>
-<li>Test methods, which I&#39;ll generally try to order in a way that matches the class we&#39;re testing for easier discovery<ol>
-<li>Generally I&#39;ll reserve <code>testMethodName()</code> for the most generic happy path</li>
-<li>If there are other happy paths (e.g. return from cache if it exists, behavior dependent upon passed arguments, etc.), these come next.</li>
-<li>Tests related to argument validation (empty strings/arrays, invalid objects, etc.)</li>
-<li>Places where we may trigger exceptions or errors</li>
-</ol>
-</li>
-<li>Helper methods, custom assertions, etc. (more on this in a minute)</li>
-</ol>
-<p>Remember that the whole point is making sure that people can find the tests relevant to the code they&#39;re working on!</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Organizing a test class (example)
-
-```php[|1|3-11|13-16]
-protected function setUp(): void {}
-
-public function testCreate(): void {}
-
-public function testCreateForExistingAccount(): void {}
-
-public function testCreateThrowsOnEmptyUsername(): void {}
-
-public function testCreateThrowsOnExistingUsername(): void {}
-
-public function testCreateThrowsIfRecordCreationFails(): void {}
-
-private function assertUserExists(
-    string $username,
-    string $message = ''
-): void {}
-```
-<!-- .element: class="growth-spurt hide-line-numbers" -->
-
-<aside class="notes"><p>If we were testing a <code>create()</code> method, our test class might look something like this:</p>
-<ul>
-<li>Fixture(s) up top (<code>setUp()</code>)</li>
-<li>Happy paths, argument validation errors, other errors and exceptions</li>
-<li>Helpers &#39;n such (in this case, a custom assertion)</li>
-</ul>
-<p>If the SUT also had a <code>delete()</code> method defined after <code>create()</code>, I&#39;d put the tests for <code>delete()</code> after <code>testCreateThrowsIfRecordCreationFails()</code> and before <code>assertUserExists()</code>.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### Naming: to "test" or to `#[Test]`?
-
-```php [3-6|1,8-12]
-use PHPUnit\Framework\Attributes\Test;
-
-public function testNewUserIsRegistered(): void
-{
-    // ...
-}
-
-#[Test]
-public function itShouldRegisterANewUser(): void
-{
-    // ...
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-<aside class="notes"><p>By convention, PHPUnit will assume that any public method on a test class that begins with &quot;test&quot; (e.g. <code>testTheThing()</code>) is a test method.</p>
-<p>You can also use the <code>#[Test]</code> attribute to label test methods
-    * Can be helpful when describing things in a more BDD way (e.g. <code>itShouldRegisterANewUser()</code>)</p>
-<p>Ultimately, use whatever reads best to you and be consistent!</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### More on naming
-
-* <!-- .element: class="fragment" --> Include the method name in unit tests
-    ```diff
-    - testNewUser()
-    + testCreate()
-    ```
-* <!-- .element: class="fragment" --> Describe the scenario being tested
-    ```diff
-    - testBadUsername()
-    + testCreateThrowsIfUsernameIsInvalid()
-    ```
-
-<aside class="notes"><ul>
-<li>When writing unit tests, include the function/method being tested in the test method name (e.g. <code>testCreate()</code> when testing the <code>create()</code> method)</li>
-<li>When naming tests with specialized scenarios (such as a test that verifies that invalid usernames trigger an exception), be descriptive!</li>
-</ul>
-</aside></script></section><section data-markdown><script type="text/template">
-### Test groups
-
-Run related tests across classes & suites
-
-* <!-- .element: class="fragment" --> Feature (e.g. "Login", "Checkout")
-* <!-- .element: class="fragment" --> Domain (e.g. "Security", "Database")
-* <!-- .element: class="fragment" --> Type of class (e.g. "Models", "Controllers")
-
-<aside class="notes"><p>PHPUnit includes the ability to tag test methods and classes into groups, which are free-form and can be applied as you see fit.</p>
-<p>This is another way to filter which tests we&#39;re running.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Using test groups
-
-```php[|1,4,7]
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\TestCase;
-
-#[Group('Models')]
-final class UserTest extends TestCase
-{
-    #[Group('Login')]
-    public function testCanLogin(): void
-    {
-        // ...
-    }
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-```sh
-phpunit --group Models --exclude-group=Login
-```
-<!-- .element: class="fragment" -->
-
-<aside class="notes"><ul>
-<li>In recent versions of PHPUnit, we use the <code>PHPUnit\Framework\Attributes\Group</code> attribute to apply groups<ul>
-<li>These stack, so <code>testCanLogin()</code> is part of both the &quot;Models&quot; and &quot;Login&quot; groups</li>
-</ul>
-</li>
-<li>Groups can be assigned at the test class or test method level</li>
-<li>Running PHPUnit with the <code>--group</code> option lets us filter which tests should be run; we can also <code>--exclude-group</code><ul>
-<li>This would run tests in <code>UserTest</code> <em>except</em> <code>testCanLogin()</code> (or anything else in the &quot;Login&quot; group)</li>
-</ul>
-</li>
-</ul>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Group by test size
-
-```php[|2,4-8|1,10-14]
-use PHPUnit\Framework\Attributes\Large;
-use PHPUnit\Framework\Attributes\Small;
-
-#[Small]
-public function testSomethingQuickly(): void
-{
-    // ...
-}
-
-#[Large]
-public function testSomethingMoreComplicated(): void
-{
-    // ...
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-```sh
-phpunit --enforce-time-limit
-```
-<!-- .element: class="fragment" -->
-
-<aside class="notes"><p>PHPUnit also has three built-in groups (with their own attributes) to indicate relative test size: Small, Medium, and Large.</p>
-<p>These groups can be used to control test execution limits. Example: automatically fail this small test if it takes more than 1 second to execute, but maybe give the large tests upwards of 15 seconds.</p>
-<p>By default, these are 1, 10, and 60 seconds, respectively (but can be configured).</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Group by ticket
-
-```php [|1-3]
-use PHPUnit\Framework\Attributes\Ticket;
-
-#[Ticket('https://bugs.example.com/issues/123')]
-public function testUsernamesCannotBeEmpty(): void
-{
-    // ...
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-```sh
-phpunit --group https://bugs.example.com/issues/123
-```
-<!-- .element: class="fragment" -->
-
-<aside class="notes"><p>Another useful way to apply groups is through the <code>#[Ticket]</code> attribute, which implicitly creates a new group around particular issue tracker URLs.</p>
-<p>This can be really helpful with bugfixes to indicate &quot;this test was written to help fix this bug&quot; and give people a place to gain more context about the test/fix.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### A different brand of <abbr title="Don't Repeat Yourself">DRY</abbr>
-
-Readability begets maintainability
-
-<aside class="notes"><p>Tests will inherently have some duplication, but that&#39;s okay!</p>
-<p>A more readable test class will be a more maintainable test class, so don&#39;t go overboard trying to keep things DRY.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Break out common patterns
-
-<pre class="fragment-replacement code-wrapper growth-spurt"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">use GuzzleHttp\Client;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Psr7\Response;
-
-$client = new Client([
-    'handler' => HandlerStack::create(new MockHandler([
-        new Response(200, [], 'First response'),
-        new Response(404)
-    ]),
-]);</code><span class="fragment fade-out" data-fragment-index="1"><code class="hljs php language-php fragment fade-in" data-fragment-index="0">use GuzzleHttp\Client;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use Psr\Http\Message\ResponseInterface;
-
-private function mockGuzzleClient(
-    ResponseInterface ...$responses
-): Client {
-    return new Client([
-        'handler' => HandlerStack::create(
-            new MockHandler($responses)
-        ),
-    ]);
-}</code></span><code class="hljs php language-php fragment fade-in" data-fragment-index="1">use GuzzleHttp\Psr7\Response;
-
-public function testHandlingOf404Errors(): void
-{
-    $client = $this->mockGuzzleClient(new Response(404));
-    $service = new MyService($client);
-
-    // ...
-}</code></pre>
-
-<aside class="notes"><p>If you&#39;ve ever used Guzzle, you&#39;ve probably had to use this pattern to stub out HTTP responses. However, this can be tedious to write over and over again.</p>
-<p>We can simplify the process by creating a <code>mockGuzzleClient()</code> method, which accepts any number of <code>ResponseInterface</code> instances.</p>
-<p>Now, to construct a client, we can just call <code>$this-&gt;mockGuzzleClient()</code> with our expected responses, then inject the client into whatever we&#39;re testing.</p>
-<p>We can even take this a step further and break it out into a trait like <code>MocksGuzzle</code>, which could be applied to any test class that needs it.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Testing traits
-
-* <!-- .element: class="fragment" --> Setting up user/application state
-* <!-- .element: class="fragment" --> Custom assertions
-* <!-- .element: class="fragment" --> Injecting mocks into global state
-* <!-- .element: class="fragment" --> Common setUp/tearDown fixtures
-
-<aside class="notes"><p>Traits can be helpful for encapsulating common patterns across your test suite.</p>
-<ul>
-<li>This could be things like mocking Guzzle or setting up users, seeding activity, etc.</li>
-<li>Maybe you have some custom assertions that you want to make available for a subset of tests</li>
-<li>If your app relies on global state, you might want a single, canonical way of setting that up for tests</li>
-<li>Perhaps you have specific setup/teardown fixtures that you need to run</li>
-</ul>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Testing traits vs base TestCases
-
-```php[|1,5|2-3,7-8]
-use PHPUnit\Framework\TestCase;
-use Test\Support\AuthAssertions;
-use Test\Support\MocksGuzzle;
-
-final class MyClassTest extends TestCase
-{
-    use AuthAssertions;
-    use MocksGuzzle;
-
-    // ...
-}
-```
-<!-- .element: class="hide-line-numbers" -->
-
-**Pro-tip:** <u>one</u> base class per test suite
-<!-- .element: class="fragment" -->
-
-<aside class="notes"><p>PHPUnit test classes extend <code>PHPUnit\Framework\TestCase</code>, but you are able to create custom sub-classes.</p>
-<p>Example: setting up basic application state, database connectivity for integration tests, expose custom assertions, etc.</p>
-<p>However, PHP is single-inheritance (classes can only extend a single class), so this can lead to base test cases getting bloated.</p>
-<p>A better approach would be to use composition rather than inheritance: break things up into traits, which you can then import only where you need them.</p>
-<p>General rule of thumb: if you find yourself with multiple base test cases in a single test suite (e.g. ApiTestCase, ModelTestCase, etc.), that could be a sign that things are overengineered. Consider converting to traits and/or splitting into separate test suites.</p>
-</aside></script></section></section><section ><section data-markdown><script type="text/template">
-## Writing better tests
-
-<aside class="notes"><p>Now that our test classes are tidy, let&#39;s talk about how to improve the test methods themselves.</p>
-<p>Please note that while the examples here are centered around PHPUnit, the principles are fairly universal across languages and test runners.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### Test Structure
-
-Arrange, Act, Assert
-
-(a.k.a. "Given, When, Then")<!-- .element: class="fragment" -->
-
-<aside class="notes"><p>When writing tests, we generally want to follow a pattern of &quot;Arrange, Act, Assert&quot;:</p>
-<ol>
-<li>Arrange: set up objects, prerequisites</li>
-<li>Act: actually call/invoke the system under test</li>
-<li>Assert: Make assertions about what happened, what we received, etc.</li>
-</ol>
-<p>If you&#39;re more used to a BDD-style testing approach, you may also know this as &quot;Given, When, Then&quot;</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Test orchestration
-
-```php [|3-4|6-7|9-10]
-public function testEmailValidationWithInvalidEmail(): void
-{
-    // Arrange/Given
-    $email = 'this is not an email address';
-
-    // Act/When
-    $result = Validator::validateEmail($email);
-
-    // Assert/Then
-    $this->assertFalse($result);
-}
-```
-<!-- .element: class="hide-line-numbers overflow-hidden" -->
-
-<aside class="notes"><p>This test could easily be reduced to a single line, but breaking it out to show the structure.</p>
-<ol>
-<li>First, we set up what we need: this might involve constructing objects, setting up test doubles, etc.</li>
-<li>Next, we invoke the SUT (in this case, call the <code>validateEmail()</code> method on our <code>Validator</code> class)<ul>
-<li>This should be expected, given the name of the test method</li>
-</ul>
-</li>
-<li>Finally, we make our assertion(s); in this case, we want to assert that <code>validateEmail()</code> returned false when given an email address of &quot;this is not an email address&quot;</li>
-</ol>
-</aside></script></section><section data-markdown><script type="text/template">
-#### SUT up!
+### Tests that fail to capture the SUT
 
 <u>S</u>ystem <u>U</u>nder <u>T</u>est
 
@@ -529,80 +109,45 @@ public function testEmailValidationWithInvalidEmail(): void
 </li>
 </ul>
 </aside></script></section><section data-markdown><script type="text/template">
-### Test doubles
+### Tests that focus on implementation,<br> not behavior
 
-* <!-- .element: class="fragment" --> Stand-ins for other units of code
-* <!-- .element: class="fragment" --> Allow tests to be deterministic
-* <!-- .element: class="fragment" --> Test interactions with underlying dependencies
-
-<aside class="notes"><p>@TODO</p>
-<p>In order to isolate our SUT, we can rely on &quot;test doubles&quot;, which stand-in for other units of code.</p>
-<p>Instead of relying on</p>
+<aside class="notes"><p>When people are first learning how to write tests, it&#39;s not uncommon to see tests that are effectively repeating what the code itself is doing: &quot;we expect that calling this method will also call these three methods, each of which will return these values, etc.&quot;</p>
+<p>This can result in brittle tests that break as soon as anything in the implementation changes, because they&#39;re being prescriptive.</p>
+<p>Instead, think of tests as inputs and outputs: given this input, I expect to see this output. Anything else is incidental, unless you&#39;re explicitly setting out to test side-effects (e.g. ensure some method is called to test that a lifecycle hook is executed)</p>
 </aside></script></section><section data-markdown><script type="text/template">
-#### Five types of test doubles
+### Tests that fail for the wrong reasons
 
-**Dummy**<br>
-Simply satisfies required arguments
-<!-- .element: class="fragment" data-fragment-index="0" -->
+```php [|6]
+public function testSaveThrowsOnInvalidEmail(): void
+{
+    $user = new User();
+    $user->email = 'not an email address';
 
-```php
-User::create('test@example.com', 'password123!');
+    $this->expectException(\Throwable::class);
+    $user->save();
+}
 ```
-<!-- .element: class="fragment" data-fragment-index="0" -->
+<!-- .element: class="hide-line-numbers" -->
 
-**Fake**<br>
-Test-only implementation of interface
-<!-- .element: class="fragment" data-fragment-index="1" -->
+<aside class="notes"><p>I&#39;ve lost track of how many times I&#39;ve come across tests like this: we want to verify that we can&#39;t persist a user with some invalid data, so we set some invalid data and tell PHPUnit that expect to see an instance of <code>Throwable</code> thrown.</p>
+<p>However, we&#39;re looking for <em>any</em> <code>Throwable</code> here. Maybe it&#39;s a <code>ValidationException</code> thrown because of the invalid email, but it could also be an error because some other required field isn&#39;t set. Or maybe a type error, or a missing argument somewhere. This test wouldn&#39;t catch those instances, because we&#39;re being too broad in our expectations.</p>
+</aside></script></section><section data-markdown><script type="text/template">
+### Non-deterministic tests
 
-```php
-class TestLogger implements Psr\Log\LoggerInterface {}
-```
-<!-- .element: class="fragment" data-fragment-index="1" -->
+Running the same test multiple times should produce the same result!
 
-<aside class="notes"><p>The first two types of test doubles are pretty straightforward:</p>
+<aside class="notes"><p>This one seems obvious, but you might be surprised how often people mess this up: running the same test multiple times should produce the same result!</p>
 <ul>
-<li>A dummy simply exists to satisfy a required argument. Maybe you&#39;re passing a string like &quot;first_name&quot; or an empty array. These arguments have no bearing on behavior, we just need to satisfy requirements.</li>
-<li>A fake is an implementation of an interface that&#39;s used instead of the real class. Generally the fake implementations would not be production-ready.<ul>
-<li>A great example here is Monolog&#39;s <code>TestLogger</code>: instead of writing to a log file somewhere, it just logs everything to an array.</li>
-<li>You can get the entries back out to ensure the right messages were logged.</li>
+<li>If tests rely on another test having been run before it in order to pass (e.g. setting something in the global state), that&#39;s an unwanted dependency.</li>
+<li>If tests start failing because the clock rolled over from one second to the next, that&#39;s an unwanted dependency.<ul>
+<li>Daylight Saving Time is great at catching these</li>
 </ul>
 </li>
+<li>If tests break because some third-party service is down, that&#39;s an unwanted dependency.</li>
 </ul>
+<p>In order to make our tests deterministic, we can use test doubles to create stand-ins that we&#39;re able to control.</p>
 </aside></script></section><section data-markdown><script type="text/template">
-#### Five types of test doubles
-
-**Stub**<br>
-_When I call `X()`, return `Y`_
-<!-- .element: class="fragment" -->
-
-**Mock**<br>
-_Expect `X(A, B)`, return `Y`_
-<!-- .element: class="fragment" -->
-
-**Spy**<br>
-_Did `X()` get called with `A`, `B`?_
-<!-- .element: class="fragment" -->
-
-<aside class="notes"><p>The other three types are all closely related:</p>
-<ul>
-<li>A stub allows us to dictate how something should behave; when I call this function/method, respond with this.</li>
-<li>A mock builds on this idea, letting us make assertions around interactions with the test double<ul>
-<li>Expect that this method will be called exactly two times with these specific arguments; when it is, return this value, execute this callback, throw this exception, etc.</li>
-</ul>
-</li>
-<li>A spy is like a mock, but after the fact: after we&#39;ve executed the system under test, verify that some method was called exactly once with these these arguments.<ul>
-<li>A great use-case would be ensuring that appropriate errors are emitted: when we forced this failure, did it trigger a call to our alerting service?</li>
-</ul>
-</li>
-</ul>
-</aside></script></section><section data-markdown><script type="text/template">
-##### Mocks, stubs, and spies—oh my! @TODO
-
-```php
-// Amazing test double example coming soon!
-```
-</script></section><section data-markdown><script type="text/template">
-#### Beware over-mocking!
+### Testing test doubles
 
 ```php[|4-6]
 public function testValidateUsername(): void
@@ -615,212 +160,60 @@ public function testValidateUsername(): void
 ```
 <!-- .element: class="hide-line-numbers" -->
 
-<aside class="notes"><p>When working with test doubles, be careful that you&#39;re not overly-reliant on test doubles.</p>
+<aside class="notes"><p>Sometimes, people will get over-zealous with test doubles to the point that tests stop being useful.</p>
 <p>I&#39;ve actually caught tests like this before: people were trying to test a method and ended up writing a test that stubbed the SUT.</p>
 <p>This test does <em>nothing</em> except prove that PHPUnit stubs work.</p>
 </aside></script></section><section data-markdown><script type="text/template">
-### Fixtures
-
-Methods that automatically run at certain points in the test lifecycle
+### Tests that test nothing at all
 
 ```php
-// Run before/after each test method.
-protected function setUp(): void;
-protected function tearDown(): void;
-```
-<!-- .element: class="fragment" -->
-
-```php
-// Run once at start/end of test class.
-public static function setUpBeforeClass(): void;
-public static function tearDownAfterClass(): void;
-```
-<!-- .element: class="fragment" -->
-
-<aside class="notes"><p>Fixtures are methods that you can define in a test class to handle common setup/tear-down operations.</p>
-<p>The <code>setUp()</code> and <code>tearDown()</code> methods are run before/after each test method (respectively), and are great for setting up test doubles, overriding configuration, etc.</p>
-<p>There are also static variants, <code>setUpBeforeClass()</code> and <code>tearDownAfterClass()</code>, which run at the beginning and end of the test class. These are useful for especially-expensive operations and/or ensuring one test class doesn&#39;t leak into another.</p>
-<p>Whenever possible, you should focus on the <code>setUp()</code> side of things</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Fixtures via attributes
-
-```php [|1,5-9]
-use PHPUnit\Framework\Attributes\Before;
-
-trait FixturesWithAttributes
+public function getID(): int
 {
-    #[Before]
-    protected function doSomethingBeforeEachTest(): void
-    {
-        // ...
-    }
+    return $this->id;
 }
 ```
-<!-- .element: class="hide-line-numbers" -->
 
-<aside class="notes"><p>If you&#39;re breaking things into traits and need to use fixtures, it&#39;s recommended that you use PHP attributes. This prevents any sort of conflicts arising from multiple traits defining things like <code>setUp()</code>: just mark the fixture methods with the appropriate PHP attributes: Before, After, BeforeClass, AfterClass.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Fixtures: in practice
-
-```php [|1,7,11|6,12]
-use PHPUnit\Framework\MockObject\Stub;
-use PHPUnit\Framework\TestCase;
-
-final class NewsFeedTest extends TestCase
+<pre class="code-wrapper fragment-replacement fragment hide-line-numbers" data-fragment-index="0"><code class="hljs php language-php fragment fade-out" data-fragment-index="1">public function testGetID(): void
 {
-    private NewsFeed $instance;
-    private RssFeed&Stub $rssFeed;
+    $this->user->setID(123);
 
-    protected function setUp(): void
-    {
-        $this->rssFeed = $this->createStub(RssFeed::class);
-        $this->instance = new NewsFeed($this->rssFeed);
-    }
+    $this->assertIsInt($this->user->getID());
 }
-```
-<!-- .element: class="hide-line-numbers" -->
-
-<aside class="notes"><p>To see how fixtures might work in practice, let&#39;s imagine we have a <code>NewsFeed</code> class that accepts an instance of our <code>RssFeed</code> service class as a constructor argument.</p>
-<p>We might create a stub within our <code>setUp()</code> fixture, so that we know we have a fresh instance at the start of each test.</p>
-<p>Then we might create an instance of <code>NewsFeed</code>, injecting our stubbed RssFeed instance.</p>
-<p>Note that if the constructor args will change between tests, we probably wouldn&#39;t want to do this in a fixture: generally speaking, we only want to perform steps in a fixture that we intend to run for the majority—if not all—of our test methods.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Using properties set in fixtures
-
-```php [|7-10|12-13]
-final class NewsFeedTest extends TestCase
+</code><span class="fragment fade-out" data-fragment-index="2"><code class="hljs php language-php fragment fade-in" data-fragment-index="1" data-line-numbers="5">public function testGetID(): void
 {
-    // ...
+    $this->user->setID(123);
 
-    public function testGetPosts(): void
-    {
-        $this->rssFeed->method('getFeedItems')->willReturn([
-            new FeedItem(/* ... */),
-            // ...
-        ]);
-
-        $posts = $this->instance->getPosts();
-        // Now, make some assertions!
-    }
+    $this->assertIsInt($this->user->getID());
 }
-```
-<!-- .element: class="growth-spurt hide-line-numbers" -->
-
-<aside class="notes"><p>Now, we&#39;ll start writing our test methods. Since we&#39;ve already stubbed out the <code>RssFeed</code> and <code>NewsFeed</code> instances in our fixture, we can simply reference them as properties within our test method.</p>
-<p>First, we&#39;ll tell PHPUnit how we want our stubbed <code>RssFeed</code> instance to behave when we call <code>getFeedItems()</code>; since this is the happy path, let&#39;s say we want to return an array of <code>FeedItem</code>s.</p>
-<p>Then we call <code>$this-&gt;instance-&gt;getPosts()</code>, which presumably calls <code>getFeedItems()</code> on our <code>RssFeed</code> instance, returning those <code>FeedItem</code>s we set up. Then we can make assertions: maybe the count, contents, etc.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Pro-tip: use fixtures for clean-up
-
-```php [|8|10]
-public function testUserIdDoesNotRandomlyChange(): void
+</code></span><code class="hljs php language-php fragment fade-in" data-fragment-index="2" data-line-numbers="5">public function testGetID(): void
 {
-    $auth = $this->stub(AuthService::class);
-    $auth->method('isAuthenticated')->willReturn(true);
+    $this->user->setID(123);
 
-    AuthMiddleware::setService($auth);
-
-    $this->assertTrue(AuthMiddleware::isLoggedIn());
-
-    AuthMiddleware::reset();
+    $this->assertSame(123, $this->user->getID());
 }
-```
-<!-- .element: class="hide-line-numbers" -->
+</code></pre>
 
-<aside class="notes"><p>If I had a nickel for every time I&#39;ve seen this in a test, I&#39;d be rich enough to never have to hear the phrase &quot;static property&quot; again.</p>
-<p>If your tests have to manipulate static properties and/or global state, be sure to reset things in a <code>tearDown()</code> fixture, <strong>not</strong> in the test itself.</p>
-<p>In this case, if our assertion fails, PHPUnit will bail out immediately, meaning the <code>AuthMiddleware::reset()</code> call never gets made. This can then cause our stubbed <code>AuthService</code> to leak into subsequent tests, which can be a nightmare for debugging.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### Data providers
-
-Provide multiple scenarios for the same test
-
-```php[|3]
-use PHPUnit\Framework\Attributes\DataProvider;
-
-#[DataProvider('provideSomeMethodScenarios')]
-public function testSomeMethod(string $input, string $expected): void
-{
-    // Some complicated setup, perhaps?
-
-    $this->assertSame($expected, $sut->someMethod($input));
-}
-```
-<!-- .element: class="hide-line-numbers overflow-hidden"-->
-</script></section><section data-markdown><script type="text/template">
-#### Data provider method
-
-<pre class="fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">/**
- * @return array&lt;string, array{string, string}&gt;
- */
-public static function provideSomeMethodScenarios(): array
-{
-    return [
-        'first scenario' => ['input', 'expected_output'],
-        // ...
-    ];
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">/**
- * @return iterable&lt;string, array{string, string}&gt;
- */
-public static function provideSomeMethodScenarios(): iterable
-{
-    yield 'first scenario' => ['input', 'expected_output'];
-    // ...
-}</code></pre>
-
-<aside class="notes"><p>The data provider itself is responsible for providing scenarios for the test method: in this case, we&#39;re returning an array consisting of two strings for each scenario.</p>
-<p>These will get passed to our <code>testSomeMethod()</code> test method&#39;s <code>$input</code> and <code>$expected</code> arguments.</p>
-<p>If you&#39;d like fewer arrays in your life, it&#39;s also worth noting that we can return a generator by using <code>yield</code> statements; this can make the list much cleaner if you have a lot of scenarios.</p>
-<p>In either case, PHPUnit will use the key to create a name for the scenario (e.g. &quot;testSomeMethod @ first scenario&quot;), making it easier to troubleshoot failures and explain what&#39;s special about each scenario.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Avoid conditionals in tests
-
-<pre class="fragment-replacement growth-spurt"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public static function provideBadTestScenarios(): iterable
-{
-    yield 'Happy path' => [
-        [
-            'input' => 'some input',
-            'expected_exception' => null,
-        ],
-    ];
-    yield 'Error state' => [
-        [
-            'input' => 'bad input',
-            'expected_exception' => \RuntimeException::class,
-        ],
-    ];
-}</code><code class="hljs php language-php fragment fade-in" data-fragment-index="0">#[DataProvider('provideBadTestScenarios')]
-public static function testYourPatience(array $args): iterable
-{
-    // ...
-
-    if (!empty($args['expected_exception'])) {
-        $this->expectException($args['expected_exception']);
-        $sut->someMethod($args['input']);
-    } else {
-        $this->assertTrue($sut->someMethod($args['input']));
-    }
-}</code></pre>
-
-<aside class="notes"><p>When you first learn about data providers, it can be really tempting to put every possible scenario in there and have one test method per method being tested. I <strong>strongly</strong> advise against doing this, as it will quickly make your test suite unmaintainable.</p>
-<p>If someone can&#39;t look at your test method and immediately discern what&#39;s being tested, it&#39;s unlikely that anyone will ever want to touch that test again. The affirmative, happy path test methods should be separate from the negative/failure cases, which should also be separate from any exception/error expectations.</p>
-<p>Instead, consider having a couple data providers: one might provide a couple scenarios for the happy path, another might have scenarios that trigger exceptions. Don&#39;t make your tests harder to follow by prematurely lumping them into data providers to save a few keystrokes.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### Using the right assertion(s)
+<aside class="notes"><p>Speaking of useless tests, imagine we have a simple <code>getID()</code> method on a model, which returns an integer.</p>
+<p>You might find a corresponding test that looks something like this, but what&#39;s wrong with it?</p>
+<p>This test doesn&#39;t tell us anything that the PHP type system doesn&#39;t already enforce. The return type-hint guarantees that <code>getID()</code> can <em>only</em> ever return an integer, so this test will always pass.</p>
+<p>A better test for this method would be asserting that the value of <code>$this-&gt;user-&gt;getID()</code> is identical to a known value like <code>123</code>.</p>
+<p>Speaking of assertions...</p>
+</aside></script></section></section><section ><section data-markdown><script type="text/template">
+## Using the right assertion(s)
 
 * <!-- .element: class="fragment" --> PHPUnit has dozens of assertions available
-    * `assertEquals()` v `assertNotEquals()`
 * <!-- .element: class="fragment" --> If you need something more-specific, write your own!
 * <!-- .element: class="fragment" --> Everything boils down to true or false
 
-<aside class="notes"><p>One of the best things you can do to improve your tests is to pick the right assertion.</p>
+<aside class="notes"><p>Assertions are a crucial part of automated tests, but far too many people are content to just <code>assertEquals()</code> and call it a day.</p>
 <ul>
-<li>PHPUnit has dozens of assertions, and each assertion has both an affirmative and negative variant. Not everything needs to just be <code>assertEquals()</code></li>
+<li>PHPUnit has dozens of assertions, and most assertions have both an affirmative and negative variant (e.g. <code>assertArrayHasKey()</code>, <code>assertArrayNotHasKey()</code>). Not everything needs to just be <code>assertEquals()</code></li>
 <li>You can also write your own, custom assertions: this makes it easy to encapsulate business logic and reuse these assertions across your test suite</li>
 <li>Remember that at a fundamental level, every assertion boils down to true or false: does this string match what we&#39;re expecting? Do we see the array key we expect to see? Is this object of the right type?</li>
 </ul>
+<p>Remember that using the right assertion can not only improve the quality of your tests, but also make debugging failures easier.</p>
 </aside></script></section><section data-markdown><script type="text/template">
-#### Equal, but not the same!
+### Equal, but not the same!
 
 ```php [|3|4]
 public function testEquality(): void
@@ -837,9 +230,9 @@ public function testEquality(): void
 <li><code>assertSame()</code> uses strict equality (&quot;triple equals&quot;)</li>
 </ul>
 <p>Great way for subtle bugs to sneak through, since <code>0</code>, <code>false</code>, an empty string, null, and an empty array are all equivalent when compared with loose equality checks.</p>
-<p>Rule of thumb: default to <code>assertSame()</code> anywhere you can&#39;t find a more-specific exception, then only resort to <code>assertEquals()</code> when absolutely necessary (e.g. two separate instances of an object that are otherwise equals)</p>
+<p>Rule of thumb: default to <code>assertSame()</code> anywhere you can&#39;t find a more-specific assertion, then only resort to <code>assertEquals()</code> when absolutely necessary (e.g. two separate instances of an object that are otherwise equals)</p>
 </aside></script></section><section data-markdown><script type="text/template">
-#### `assertCount()`
+### `assertCount()`
 
 <pre class="code-wrapper fragment-replacement"><code class="hljs php language-php fragment fade-out" data-fragment-index="1">public function testCount(): void
     {
@@ -859,10 +252,10 @@ Failed asserting that actual size 3 matches expected size 2.</code></pre>
 
 <aside class="notes"><p>A classic example of picking the right tool for the job: <code>assertCount()</code>.</p>
 <p>When the assertion fails, <code>assertSame()</code> will tell us that we &quot;failed asserting that 3 is identical to 2.&quot;</p>
-<p>Meanwhile, <code>assertCount()</code> gives us more details: &quot;Failed asserting that the actual size matches expected size 2.&quot;</p>
+<p>Meanwhile, <code>assertCount()</code> gives us more details: &quot;Failed asserting that the actual size 3 matches expected size 2.&quot;</p>
 <p>It&#39;s a subtle difference, but makes it clear at a glance that we&#39;re comparing the size of two things.</p>
 </aside></script></section><section data-markdown><script type="text/template">
-#### JSON assertions
+### JSON assertions
 
 ```php[|5,9]
 public function testJsonAssertions(): void
@@ -884,7 +277,7 @@ public function testJsonAssertions(): void
 <aside class="notes"><p>In other situations, the failure output we get will be tailored to the assertion that failed.</p>
 <p>Imagine we&#39;re comparing two JSON objects: we&#39;re expecting &quot;key2&quot; to have &quot;val2&quot; as its value, but our <code>$actual</code> has a value of &quot;val3&quot;.</p>
 </aside></script></section><section data-markdown><script type="text/template">
-#### JSON assertions
+### JSON assertions
 
 <pre class="code-wrapper fragment-replacement hide-line-numbers"><code class="hljs php language-php fragment fade-out" data-fragment-index="1">public function testJsonAssertions(): void
 {
@@ -913,7 +306,7 @@ Failed asserting that '{"key2":"val3","key1":"val1"}' matches (...)
 +    "key2": "val3"
  }</code></pre>
 
-<aside class="notes"><p>If we just compared the two as strings, PHPUnit will tell us that the strings don&#39;t match, but it&#39;s up to us to figure out how they differ.</p>
+<aside class="notes"><p>If we just compared the two as strings, PHPUnit would tell us that the strings don&#39;t match, but seeing <em>how</em> they differ is left up to us.</p>
 <p>Meanwhile, the <code>assertJsonStringEqualsJsonString()</code> assertion will print a line-by-line diff <em>and</em> disregard the ordering of the properties.</p>
 </aside></script></section><section data-markdown><script type="text/template">
 ### Assertion messages
@@ -968,8 +361,8 @@ Failed asserting that false is true.
 <!-- .element: class="hide-line-numbers" -->
 
 <aside class="notes"><p>When writing assertion messages, make sure you&#39;re actually adding useful information.</p>
-<p>For example, the output when <code>assertFileExists()</code> fails already says &quot;Failed asserting that file (file) exists&quot;, so adding &quot;assertion failed&quot; doesn&#39;t tell us anything. Instead, provide context: we failed to verify that the appropraite cache file was created.</p>
-<p>Similarly, <code>assertEmpty()</code> against an array will fail with &quot;Failed asserting that an array is empty.&quot; Instead of just repeating that, we can explain that we expect the array of posts associated with a newly-created user should be empty because they haven&#39;t yet posted anything.</p>
+<p>For example, the failure message for <code>assertFileExists()</code> already tells us that the given file does not exist, so a message like &quot;assertion failed&quot; doesn&#39;t tell us anything. Instead, we might say &quot;The cache file should have been created&quot; so it&#39;s obvious why this assertion is important.</p>
+<p>Similarly, <code>assertEmpty()</code> against an array will fail with &quot;Failed asserting that an array is empty.&quot; Instead of just repeating that, we can explain that we expect the array of posts associated with a newly-created user to be empty because they haven&#39;t yet posted anything.</p>
 <p>Now, if either of these assertions fail we can understand <em>why</em> the assertion was being made, which can help point us to where the error may be occurring.</p>
 </aside></script></section><section data-markdown><script type="text/template">
 ### Sometimes, you assert nothing
@@ -995,34 +388,193 @@ public function testItDoesNotThrowAnException(): void
 <aside class="notes"><p>If you&#39;re trying to write a test to basically verify that nothing blows up, be sure you&#39;re annotating it correctly.</p>
 <p>I&#39;ve fixed <em>so many</em> tests in my career that use this pattern of <code>$this-&gt;assertTrue(true)</code>, which is just sloppy. However, PHPUnit will mark tests as risky if they don&#39;t make any assertions, so what are you supposed to do?</p>
 <p>The correct approach is the <code>#[DoesNotPerformAssertions]</code> attribute, which tells PHPUnit &quot;hey, we&#39;re testing something but won&#39;t be performing any assertions.&quot;</p>
+</aside></script></section></section><section ><section data-markdown><script type="text/template">
+## Test organization
+
+> You miss 100% of the tests you can't find <cite>Me, just now</cite>
+
+<aside class="notes"><p>If you and your team can&#39;t find your tests, you&#39;re far less likely to maintain your tests (or write new tests). Take the time to make your tests discoverable and it will pay dividends.</p>
+<p>For unit tests, you probably want to mirror the application file structure (e.g. tests for <code>app/models/User.php</code> are in <code>tests/unit/app/models/UserTest.php</code>).</p>
+<p>For integration or feature tests, try to group things by logical domain.</p>
+<p>Worst case: document your organizational scheme in a markdown file that lives in the repo.</p>
 </aside></script></section><section data-markdown><script type="text/template">
-### On testing types
+#### Organizing a test class
+
+```php[|1|3-11|13-16]
+protected function setUp(): void {}
+
+public function testCreate(): void {}
+
+public function testCreateForExistingAccount(): void {}
+
+public function testCreateThrowsOnEmptyUsername(): void {}
+
+public function testCreateThrowsOnExistingUsername(): void {}
+
+public function testCreateThrowsIfRecordCreationFails(): void {}
+
+private function assertUserExists(
+    string $username,
+    string $message = ''
+): void {}
+```
+<!-- .element: class="growth-spurt hide-line-numbers" -->
+
+<aside class="notes"><p>If we were testing a <code>create()</code> method, our test class might look something like this:</p>
+<ol>
+<li>Fixture(s) up top (<code>setUp()</code>)</li>
+<li>All the tests for the <code>create()</code> method are grouped together<ul>
+<li>Happy paths, argument validation errors, then other errors and exceptions</li>
+</ul>
+</li>
+<li>Finally, helpers &#39;n such (in this case, a custom assertion)</li>
+</ol>
+<p>If the SUT also had a <code>delete()</code> method defined after <code>create()</code>, I&#39;d put the tests for <code>delete()</code> after <code>testCreateThrowsIfRecordCreationFails()</code> and before <code>assertUserExists()</code>.</p>
+<p>Remember that the whole point is making sure that people can find the tests relevant to the code they&#39;re working on!</p>
+</aside></script></section><section data-markdown><script type="text/template">
+#### Naming test methods
+
+* <!-- .element: class="fragment" --> Include the method name in unit tests
+    ```diff
+    - testNewUser()
+    + testCreate()
+    ```
+* <!-- .element: class="fragment" --> Describe the scenario being tested
+    ```diff
+    - testBadUsername()
+    + testCreateThrowsIfUsernameIsInvalid()
+    ```
+
+<aside class="notes"><ul>
+<li>When writing unit tests, include the function/method being tested in the test method name (e.g. <code>testCreate()</code> when testing the <code>create()</code> method)</li>
+<li>When naming tests with specialized scenarios (such as a test that verifies that invalid usernames trigger an exception), be descriptive!</li>
+</ul>
+</aside></script></section></section><section ><section data-markdown><script type="text/template">
+## Writing maintainable tests
+
+<aside class="notes"><p>Now that our test classes are tidy, let&#39;s talk about how to improve the test methods themselves.</p>
+</aside></script></section><section data-markdown><script type="text/template">
+### Test Structure
+
+Arrange, Act, Assert
+
+(a.k.a. "Given, When, Then")<!-- .element: class="fragment" -->
+
+<aside class="notes"><p>When writing tests, we generally want to follow a pattern of &quot;Arrange, Act, Assert&quot;:</p>
+<ol>
+<li>Arrange: set up objects, prerequisites</li>
+<li>Act: actually call/invoke the system under test</li>
+<li>Assert: Make assertions about what happened, what we received, etc.</li>
+</ol>
+<p>If you&#39;re more used to a BDD-style testing approach, you may also know this as &quot;Given, When, Then&quot;</p>
+</aside></script></section><section data-markdown><script type="text/template">
+#### Test orchestration
+
+```php [|3-4|6-7|9-10]
+public function testValidateEmailWithInvalidEmail(): void
+{
+    // Arrange/Given
+    $email = 'this is not an email address';
+
+    // Act/When
+    $result = Validator::validateEmail($email);
+
+    // Assert/Then
+    $this->assertFalse($result);
+}
+```
+<!-- .element: class="hide-line-numbers overflow-hidden" -->
+
+<aside class="notes"><p>This test could easily be reduced to a single line, but breaking it out to show the structure.</p>
+<ol>
+<li>First, we set up what we need: this might involve constructing objects, setting up test doubles, etc.</li>
+<li>Next, we invoke the SUT (in this case, call the <code>validateEmail()</code> method on our <code>Validator</code> class)<ul>
+<li>This should be expected, given the name of the test method</li>
+</ul>
+</li>
+<li>Finally, we make our assertion(s); in this case, we want to assert that <code>validateEmail()</code> returned false when given an email address of &quot;this is not an email address&quot;</li>
+</ol>
+</aside></script></section><section data-markdown><script type="text/template">
+### Fixtures
+
+Methods that automatically run at certain points in the test lifecycle
 
 ```php
-public function getID(): int
+// Run before/after each test method.
+protected function setUp(): void;
+protected function tearDown(): void;
+```
+<!-- .element: class="fragment" -->
+
+```php
+// Run once at start/end of test class.
+public static function setUpBeforeClass(): void;
+public static function tearDownAfterClass(): void;
+```
+<!-- .element: class="fragment" -->
+
+<aside class="notes"><p>Fixtures are methods that you can define in a test class to handle common setup/tear-down operations.</p>
+<p>The <code>setUp()</code> and <code>tearDown()</code> methods are run before/after each test method (respectively), and are great for setting up test doubles, overriding configuration, etc. Instead of having to explicitly do this at the start of each test method, we can define fixtures to ensure that each test is starting from the same place.</p>
+<p>There are also static variants, <code>setUpBeforeClass()</code> and <code>tearDownAfterClass()</code>, which run at the beginning and end of the test class. These are useful for especially-expensive operations and/or ensuring one test class doesn&#39;t leak into another.</p>
+<p>Whenever possible, you should focus on the <code>setUp()</code> side of things</p>
+</aside></script></section><section data-markdown><script type="text/template">
+#### Pro-tip: use fixtures for clean-up
+
+```php [|8|10]
+public function testUserIdDoesNotRandomlyChange(): void
 {
-    return $this->id;
+    $auth = $this->stub(AuthService::class);
+    $auth->method('isAuthenticated')->willReturn(true);
+
+    AuthMiddleware::setService($auth);
+
+    $this->assertTrue(AuthMiddleware::isLoggedIn());
+
+    AuthMiddleware::reset();
 }
 ```
+<!-- .element: class="hide-line-numbers" -->
 
-```php [|3]
-public function testGetID(): void
+<aside class="notes"><p>If I had a nickel for every time I&#39;ve seen this in a test, I&#39;d be rich enough to never have to hear the phrase &quot;static property&quot; again.</p>
+<p>If your tests have to manipulate static properties and/or global state, be sure to reset things in a <code>tearDown()</code> fixture, <strong>not</strong> in the test itself.</p>
+<p>In this case, if our assertion fails, PHPUnit will bail out immediately, meaning the <code>AuthMiddleware::reset()</code> call never gets made. This can then cause our stubbed <code>AuthService</code> to leak into subsequent tests, which can be a nightmare for debugging.</p>
+</aside></script></section><section data-markdown><script type="text/template">
+### Stay <abbr title="Don't Repeat Yourself">DRY</abbr>!
+
+Break out common patterns into traits:
+
+* <!-- .element: class="fragment" --> Custom assertions
+* <!-- .element: class="fragment" --> Helper methods
+* <!-- .element: class="fragment" --> Fixtures
+
+<aside class="notes"><p>Just like in our production code, we want to stay as DRY as possible. However, it&#39;s also important that people are able to follow what&#39;s happening in tests, so when it comes down to readability vs DRY, err on the side of being able to read the tests!</p>
+<p>We can encourage reusability by breaking common patterns into traits, which should be preferred over sub-classing <code>PHPUnit\Framework\TestCase</code>, as it lets us load only the components we need on a per-test class basis (composition v inheritance)</p>
+<p>Great examples of things to break out into traits include:</p>
+<ul>
+<li>Custom PHPUnit assertions</li>
+<li>Helper methods that get used across multiple test classes</li>
+<li>Common fixtures that might be necessary to properly set up application state</li>
+</ul>
+</aside></script></section><section data-markdown><script type="text/template">
+#### Fixtures via attributes
+
+```php [|1,5-9]
+use PHPUnit\Framework\Attributes\Before;
+
+trait FixturesWithAttributes
 {
-    $this->assertIsInt($this->user->getID());
+    #[Before]
+    protected function doSomethingBeforeEachTest(): void
+    {
+        // ...
+    }
 }
 ```
-<!-- .element: class="fragment hide-line-numbers" -->
+<!-- .element: class="hide-line-numbers" -->
 
-<aside class="notes"><p>Imagine we have a simple <code>getID()</code> method on a model, which returns an integer.</p>
-<p>You might find a corresponding test that looks something like this, but what&#39;s wrong with it?</p>
-<p>This test doesn&#39;t tell us anything that the PHP type system doesn&#39;t already enforce. The return type-hint guarantees that <code>getID()</code> can <em>only</em> ever return an integer, so this test will always pass. We&#39;re testing something we don&#39;t own here!</p>
-<p>A better test for this method would be asserting that the value of <code>$this-&gt;user-&gt;getID()</code> is identical to a known value like <code>123</code>.</p>
+<aside class="notes"><p>If you&#39;re breaking things into traits and need to use fixtures, it&#39;s recommended that you use PHP attributes. This prevents any sort of conflicts arising from multiple traits defining things like <code>setUp()</code>: just mark the fixture methods with the appropriate PHP attributes: Before, After, BeforeClass, AfterClass.</p>
 </aside></script></section></section><section ><section data-markdown><script type="text/template">
 ## Writing tests for existing code
-
-<aside class="notes"><p>I&#39;ve thrown a lot at you so far, so let&#39;s start applying some of these practices with actual code:</p>
-</aside></script></section><section data-markdown><script type="text/template">
-### Simple unit tests
 
 ```php
 namespace App;
@@ -1071,9 +623,9 @@ final class StrTest extends TestCase
 
 Three approaches:
 
-1. <!-- .element: class="fragment" -->One method, many assertions
-2. <!-- .element: class="fragment" -->Many methods, one assertion each
-3. <!-- .element: class="fragment" -->One method, data provider
+1. <!-- .element: class="fragment" --> One method, many assertions
+2. <!-- .element: class="fragment" --> Many methods, one assertion each
+3. <!-- .element: class="fragment" --> One method, data provider
 
 <aside class="notes"><p>When handling unit tests for simple I/O methods like this, there are generally three approaches</p>
 <ol>
@@ -1147,12 +699,13 @@ public static function provideSnakeCaseScenarios(): iterable
     yield 'Already in snake case' => ['hello_there', 'hello_there'];
     yield 'camelCase' => ['helloThere', 'hello_there'];
     yield 'PascalCase' => ['HelloThere', 'hello_there'];
+    yield 'Empty string' => ['', ''];
 }
 ```
 <!-- .element: style="font-size: .45em;" -->
 
 <aside class="notes"><p>(May be hard to read)</p>
-<p>For each of this scenarios, we add an entry to our data provider. This can use generators as I&#39;ve done here or use an associative array, but PHPUnit will pick up the keys we use when describing the test (e.g. <code>testSnakeCase()</code> with scenario &quot;Multiple words&quot;). This also provides better context as to <em>what</em> is being tested, which makes the tests more maintainable.</p>
+<p>For each of this scenarios, we add an entry to our data provider. This can use generators as I&#39;ve done here or use an associative array, but PHPUnit will pick up the keys we use when describing the test (e.g. &quot;testSnakeCase() @ Multiple words&quot;). This also provides better context as to <em>what</em> is being tested, which makes the tests more maintainable.</p>
 <p>Each line here results in a new test being run, which can pass or fail independently of the other scenarios; if you come up with another scenario (like leading/trailing underscores), it&#39;s simply a matter of adding it to your data provider!</p>
 </aside></script></section><section data-markdown><script type="text/template">
 #### Tests vs type-hints
@@ -1177,97 +730,78 @@ Argument #1 ($str) must be of type string, array given
 <aside class="notes"><p>&quot;What about protecting against non-strings being passed to our method?&quot;, you might ask.</p>
 <p>If you recall, we added both argument and return type-hints, which means that PHP is going to reject any non-strings automatically. We&#39;ve pushed this off onto PHP&#39;s type engine, which isn&#39;t code that we own, so we don&#39;t need to concern ourselves writing tests for it!</p>
 <p>Adding the type-hints here will also make it super-easy for IDEs and static code analysis tools like PHPStan to say &quot;hey, you&#39;re trying to call snakeCase() with an array, but it only accepts a string!&quot;</p>
+<p>Generally speaking, the stricter your types, the less you need to explicitly write tests for. Once again, embracing strict types makes your life easier!</p>
 </aside></script></section><section data-markdown><script type="text/template">
-### Testing More-Complex Logic
+### Testing beyond the happy path
 
-```php[|5-7|9-11|]
-public function makeThingsSoComplicated(
-    string $path,
-    array $args = []
-): ?string {
-    if (empty($path)) {
-        throw new \InvalidArgumentException('$path cannot be empty!');
+* <!-- .element: class="fragment" --> What are the normal ("happy") routes?
+* <!-- .element: class="fragment" --> What are the error states?
+* <!-- .element: class="fragment" --> How do we handle invalid input?
+
+<aside class="notes"><p>A common gap in test suites is that people are much more likely to test the so-called &quot;happy&quot; paths—when everything goes right—than they are to test what happens when things go wrong.</p>
+<p>When writing tests, it&#39;s important to write tests that verify error behaviors. Are we throwing the appropriate exception? Are we leaving things in a half-modified state?</p>
+<p>Furthermore, what happens if we&#39;re given invalid data? We&#39;re expecting an email address as a string, but we&#39;re given an empty string: do we keep processing? Should we expect a validation error? What about a negative query limit?</p>
+<p>Some of the most valuable tests are those that prove how things work under non-ideal situations.</p>
+</aside></script></section><section data-markdown><script type="text/template">
+#### How many paths can you find?
+
+```php [|3-11|3,9-11|4-8|5]
+public function getClient(): Client
+{
+    if (!isset($this->client)) {
+        try {
+            $this->client = new Client($this->authToken);
+        } catch (ClientException $e) {
+            throw new InvalidClientException(/* ... */);
+        }
     }
 
-    if ($args['skipComplications'] ?? false) {
-        return null;
+    return $this->client;
+}
+```
+<!-- .element: class="hide-line-numbers" -->
+
+<aside class="notes"><p>Given this <code>getClient()</code> method, let&#39;s look at all of the possible ways we can work through it:</p>
+<ol>
+<li>If we don&#39;t have a client yet, we need to construct one. Do we get an instance of Client?</li>
+<li>If we already have a client, are we getting back the same, cached instance with each call?</li>
+<li>If constructing a new Client causes a <code>ClientException</code> to be thrown, are we then re-throwing as an <code>InvalidClientException</code>?</li>
+<li>Are there other exceptions that might occur that we might intentionally not be catching?</li>
+<li>What happens if <code>$this-&gt;authToken</code> is empty or of an invalid type?</li>
+</ol>
+</aside></script></section><section data-markdown><script type="text/template">
+###### Warning: avoid conditionals in tests!
+
+<pre class="fragment-replacement growth-spurt"><code class="hljs php language-php fragment fade-out" data-fragment-index="0">public static function provideBadTestScenarios(): iterable
+{
+    yield 'Happy path' => [
+        [
+            'input' => 'some input',
+            'expected_exception' => null,
+        ],
+    ];
+    yield 'Error state' => [
+        [
+            'input' => 'bad input',
+            'expected_exception' => \RuntimeException::class,
+        ],
+    ];
+}</code><code class="hljs php language-php fragment fade-in hide-line-numbers" data-fragment-index="0" data-line-numbers="6-11">#[DataProvider('provideBadTestScenarios')]
+public static function testYourPatience(array $args): iterable
+{
+    // ...
+
+    if (!empty($args['expected_exception'])) {
+        $this->expectException($args['expected_exception']);
+        $sut->someMethod($args['input']);
+    } else {
+        $this->assertTrue($sut->someMethod($args['input']));
     }
+}</code></pre>
 
-    return str_rot13(md5($path . json_encode($args)));
-}
-```
-<!-- .element: class="hide-line-numbers growth-spurt" -->
-
-<aside class="notes"><p>This is a silly example, but demonstrates my point well: how many paths do we have through this method?</p>
-<ol>
-<li>The happy path, which results in a rot13&#39;d, md5 checksum of the path and a JSON representation of the $args array</li>
-<li>If we pass an empty $path, we should get an exception</li>
-<li>If we set a truthy &quot;skipComplications&quot; key in $args, we should get null</li>
-<li>If we pass a false-y skipComplications, we should still get that md5 checksum</li>
-</ol>
-<p>I find that it can be really helpful to start from the top and read through, noting any places where the behavior might change. Each of these should be its own test scenario.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Testing makeThingsSoComplicated()
-
-```php[|1-9|11-15]
-public function testMakeThingsSoComplicated(): void
-{
-    $this->assertSame(
-        'o0478736258o8233272rr9727q21pq60',
-        $this->instance->makeThingsSoComplicated('Oh,', [
-            'hello' => 'there',
-        ]),
-    );
-}
-
-public function testMakeThingsSoComplicatedThrowsOnEmptyPath(): void
-{
-    $this->expectException(\InvalidArgumentException::class);
-    $this->instance->makeThingsSoComplicated('', ['abc' => '123']);
-}
-```
-<!-- .element: class="hide-line-numbers growth-spurt" -->
-
-<aside class="notes"><p>Let&#39;s work down that list of scenarios:</p>
-<ol>
-<li>First we have the happy path: if we call it with $path &quot;Oh,&quot; and $args [&#39;hello&#39; =&gt; &#39;there&#39;], we expect to see this rot13&#39;d checksum<ul>
-<li>In this case, I precalculated it. You might also choose to generate that checksum within the test to make it more obvious where it&#39;s coming from</li>
-</ul>
-</li>
-<li>Next, let&#39;s verify that we throw an <code>InvalidArgumentException</code> when $path is empty</li>
-</ol>
-<p>Notice that these tests are very simple: they&#39;re testing a single scenario and, since this class has very little setup work, we could do that in a fixture and just call the method on <code>$this-&gt;instance</code>. However, if suddenly <code>testMakeThingsSoComplicatedThrowsOnEmptyPath</code> starts failing, we know exactly where to look.</p>
-</aside></script></section><section data-markdown><script type="text/template">
-#### Testing makeThingsSoComplicated()
-
-```php[|1-8|10-18]
-public function testMakeThingsSoComplicatedSkipComplications(): void
-{
-    $this->assertNull(
-        $this->instance->makeThingsSoComplicated('Hello!', [
-            'skipComplications' => true,
-        ]),
-    );
-}
-
-public function testMakeThingsSoComplicatedWithFalseySkipComplications(): void
-{
-    $this->assertSame(
-        '930268r85896s9976594043n5s9q9s31',
-        $this->instance->makeThingsSoComplicated('Hello!', [
-            'skipComplications' => false,
-        ]),
-    );
-}
-```
-<!-- .element: class="hide-line-numbers growth-spurt" style="font-size:.45em;" -->
-
-<aside class="notes"><p>To round out the other two scenarios, we do the same thing:</p>
-<ol>
-<li>If we set the &quot;skipComplications&quot; argument to true, we expect to get a null return value</li>
-<li>If &quot;skipComplications&quot; is there but not truthy, we expect another checksum (just like in the first test)</li>
-</ol>
-<p>With these four tests, we&#39;ve covered every logical branch through this method. If someone removes the empty() check, or skipComplications changes, or someone changes how the checksums are calculated...we&#39;ll know.</p>
+<aside class="notes"><p>When you first learn about data providers, it can be really tempting to put every possible scenario in there and have one test method per method being tested. I <strong>strongly</strong> advise against doing this, as it will quickly make your test suite unmaintainable.</p>
+<p>If someone can&#39;t look at your test method and immediately discern what&#39;s being tested, it&#39;s unlikely that anyone will ever want to touch that test again. The affirmative, happy path test methods should be separate from the negative/failure cases, which should also be separate from any exception/error expectations.</p>
+<p>Instead, consider having a couple data providers: one might provide a couple scenarios for the happy path, another might have scenarios that trigger exceptions. Don&#39;t make your tests harder to follow by prematurely lumping them into data providers to save a few keystrokes.</p>
 </aside></script></section><section data-markdown><script type="text/template">
 ### Should I have AI write my tests?
 
@@ -1280,13 +814,13 @@ public function testMakeThingsSoComplicatedWithFalseySkipComplications(): void
 <li>Fine, but only to help scaffold your test class.</li>
 <li>What could go wrong?</li>
 </ol>
-<p>Tests are meant to be the objective arbitors of truth: if your tests are wrong, everything they&#39;re meant to protect is at risk.</p>
+<p>Tests are meant to be the objective arbiters of truth: if your tests are wrong, everything they&#39;re meant to protect is at risk.</p>
 <p>If you <em>must</em> use AI, be especially careful when reviewing its output; incorrect tests can be worse than having no tests at all.</p>
 <p>If you&#39;re writing new code, you might even consider <em>only</em> writing your tests, then tell AI that it can pound sand unless it can write code that causes all of those tests to pass (&quot;Test-Driven Vibe Coding&quot;)</p>
 </aside></script></section></section><section ><section data-markdown><script type="text/template">
 ## Writing tests for existing ~code~ bugs
 
-<aside class="notes"><p>Now that we&#39;ve backfilled our test suite, let&#39;s conclude by talking about regression tests.</p>
+<aside class="notes"><p>Now that we&#39;ve backfilled our test suite, let&#39;s talk quickly about regression tests.</p>
 </aside></script></section><section data-markdown><script type="text/template">
 ### Regression testing in a nutshell
 
@@ -1304,7 +838,7 @@ public function testMakeThingsSoComplicatedWithFalseySkipComplications(): void
 <li>If the bug is &quot;fixed&quot; but the tests still fail, either the fix is incomplete or tests are bad!</li>
 </ul>
 </li>
-<li>Commit the new tests to your test suite, ideally using the <code>#[Ticket]</code> attribute to point back to the original bug ticket<ul>
+<li>Commit the new tests to your test suite<ul>
 <li>If your fix ever gets removed/squashed/whatever, the tests will catch it and say &quot;hey, we already fixed this!&quot;</li>
 </ul>
 </li>
@@ -1327,15 +861,14 @@ public function testSnugglePetWithFish(): void
 <aside class="notes"><p>For a silly example, imagine we have a PetOwner class that includes a method named <code>snugglePet()</code>. However, we&#39;ve received a bug report that people are able to snuggle their fish, which is generally not a great idea.</p>
 <p>We <em>should</em> be throwing a <code>DoNotSnuggleException</code> (which we originally implemented for reptiles and birds), but apparently we overlooked marine animals.</p>
 <p>We&#39;ll write a quick test that verifies that we get a <code>DoNotSnuggleException</code> when we attempt to snuggle a fish; before we fix the bug, this test will fail. However, once we fix the bug, the test should pass.</p>
-<p>Note that I included the <code>#[Ticket]</code> annotation, which creates a new group for this issue URL. It also makes it very clear that this test was a bugfix, and the URL where someone could get more context if they needed it.</p>
+<p>Note that I included the <code>#[Ticket]</code> attribute, which creates a new group for this issue URL. It also makes it very clear that this test was a bugfix, and the URL where someone could get more context if they needed it.</p>
 </aside></script></section></section><section ><section data-markdown><script type="text/template">
 ## Test coverage
-</script></section><section data-markdown><script type="text/template">
-### What is test coverage?
 
 The percentage of the total codebase that was executed by the test suite(s)
 
-<aside class="notes"><p>We&#39;ll spend a few minutes on this topic, but it boils down to this: test/code coverage is simply what percentage of the codebase was executed when we ran the test suite.</p>
+<aside class="notes"><p>Finally, let&#39;s wrap up spending a couple minutes talking about test coverage.</p>
+<p>Test/code coverage is simply what percentage of the codebase was executed when we ran the test suite.</p>
 </aside></script></section><section data-markdown><script type="text/template">
 ### Types of test coverage
 
@@ -1348,9 +881,9 @@ The percentage of the total codebase that was executed by the test suite(s)
     <dd class="fragment" data-fragment-index="2">Which functions/methods were called?</dd>
 </dl>
 
-<aside class="notes"><p>Often when we talk about &quot;code coverage&quot;, we&#39;re referring to line coverage: which lines were—or were not—executed as we run the test suite?</p>
+<aside class="notes"><p>Often when we talk about &quot;test coverage&quot;, we&#39;re referring to line coverage: which lines were—or were not—executed as we run the test suite?</p>
 <p>However, this doesn&#39;t give us the full picture, so we can also calculate branch coverage (are all permutations through a portion of code covered by tests?) and function coverage (which functions/methods were actually executed?).</p>
-<p>There are also other forms—namely statement and condition coverage—but these three (especially line) are what most people think about. However, as you&#39;ll see, code coverage might not be all it&#39;s cracked up to be:</p>
+<p>There are also other forms—namely statement and condition coverage—but these three (especially line) are what most people think about. However, as you&#39;ll see, test coverage might not be all it&#39;s cracked up to be:</p>
 </aside></script></section><section data-markdown><script type="text/template">
 ### Illustrating test coverage: Boolean
 
@@ -1391,7 +924,6 @@ final class BooleanTest extends TestCase
 <!-- .element: class="fragment" -->
 
 <aside class="notes"><p>Now we&#39;ll write a test, and assert that the return value of the <code>true()</code> method is indeed true.</p>
-<p>Note that we&#39;re also using the <code>#[CoversClass]</code> attribute, which lets us specify &quot;this test class is only meant to cover the Boolean class, so don&#39;t count this towards any other class&#39; test coverage&quot;. This is a good habit that can be enforced by PHPUnit.</p>
 <p>We haven&#39;t tested the <code>false()</code> method, so we&#39;ve tested 50% of the <code>Boolean</code> class.</p>
 </aside></script></section><section data-markdown><script type="text/template">
 #### Testing `Boolean` (poorly)
