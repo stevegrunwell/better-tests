@@ -16,4 +16,4 @@ In this session, we'll analyze the characteristics of "good" and "bad" unit test
 
 ## Presentation History
 
-* [PHP Tek 2026](https://phptek.io) — May 21, 2026 ([Joind.in](https://joind.in/talk/cb4cd))
+* [PHP Tek 2026](https://phptek.io) — May 21, 2026 ([Joind.in](https://joind.in/talk/cb4cd), [PDF](https://github.com/stevegrunwell/better-tests/releases/download/phptek-2026/slides.pdf))
